@@ -12,4 +12,8 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    // UI/UX demo mode (src/lib/demo.ts): a literal, so normal builds drop all demo code.
+    define: { __OHDA_DEMO__: JSON.stringify(process.env["VITE_DEMO_MODE"] === "1") },
+  },
 });

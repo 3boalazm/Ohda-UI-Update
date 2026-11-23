@@ -1,4 +1,5 @@
 import type { OhdaEnvelope, CodeWrap } from "@/lib/ohdaCrypto";
+import { DEMO, readDemoActivation } from "@/lib/demo";
 
 export type Contact = { name: string; relation: string; phone: string; note: string };
 export type Bank = { name: string; country: string; type: string; note: string };
@@ -482,6 +483,7 @@ function tokenKid(token: string): string | undefined {
 }
 
 export async function getActivation(): Promise<Activation | null> {
+  if (DEMO) return readDemoActivation();
   try {
     const token = localStorage.getItem(ENT_KEY);
     if (!token) return null;

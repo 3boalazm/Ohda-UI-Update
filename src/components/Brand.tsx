@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { DEMO } from "@/lib/demo";
 
 export function LogoMark({ size = 40 }: { size?: number }) {
   return (
@@ -95,7 +96,14 @@ export function Footer() {
 
 export function Page({ children, narrow }: { children: React.ReactNode; narrow?: boolean }) {
   return (
-    <main className={`mx-auto px-4 py-8 ${narrow ? "max-w-2xl" : "max-w-5xl"}`}>{children}</main>
+    <main className={`mx-auto px-4 py-8 ${narrow ? "max-w-2xl" : "max-w-5xl"}`}>
+      {DEMO && (
+        <p className="notice mb-4 text-sm" role="note">
+          نسخة تجريبية للتصميم — مفيش سيرفر ولا بيانات حقيقية.
+        </p>
+      )}
+      {children}
+    </main>
   );
 }
 

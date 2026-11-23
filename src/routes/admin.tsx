@@ -3,6 +3,14 @@ import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { Page } from "@/components/Brand";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  DEMO,
+  DEMO_QR,
+  createDemoAdminApi,
+  type AdminApi,
+  type AdminCodeRow,
+  type AuditRow,
+} from "@/lib/demo";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -17,7 +25,7 @@ export const Route = createFileRoute("/admin")({
   validateSearch: (s: Record<string, unknown>) => ({
     setup: s["setup"] === "1" || s["setup"] === 1 ? 1 : undefined,
   }),
-  component: Admin,
+  component: DEMO ? DemoAdmin : Admin,
 });
 
 const ALPH = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -32,6 +40,39 @@ async function sha256Hex(s: string) {
   return Array.from(new Uint8Array(h), (x) => x.toString(16).padStart(2, "0")).join("");
 }
 const norm = (c: string) => c.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+/** The real admin backend: Supabase with RLS + MFA-gated security-definer functions. */
+const liveApi: AdminApi = {
+  async listCodes() {
+    const { data } = await supabase
+      .from("activation_codes")
+      .select("id, ref, plan, uses, max_uses, note, created_at")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    return (data as AdminCodeRow[]) ?? [];
+  },
+  async createCode(hash, plan, note) {
+    const { error } = await supabase.rpc("admin_create_code", {
+      p_hash: hash,
+      p_plan: plan,
+      p_max_uses: 2,
+      p_note: note,
+    });
+    return error ? error.message : null;
+  },
+  async revokeCode(ref) {
+    const { error } = await supabase.rpc("admin_revoke_code", { p_ref: ref });
+    return error ? error.message : null;
+  },
+  async listAudit() {
+    const { data } = await supabase
+      .from("audit_log")
+      .select("id, at, action, target")
+      .order("id", { ascending: false })
+      .limit(50);
+    return (data as AuditRow[]) ?? [];
+  },
+};
 
 type Status = { is_admin: boolean; aal: string };
 
@@ -100,14 +141,21 @@ function Admin() {
         <h1 className="text-2xl font-bold">الإدارة</h1>
         {signOut}
       </div>
-      <Codes />
-      <Audit />
+      <Codes api={liveApi} />
+      <Audit api={liveApi} />
     </Page>
   );
 }
 
 /** TOTP second factor: enroll once (QR), then a 6-digit challenge on every login. */
-function Mfa({ onDone }: { onDone: () => Promise<void> }) {
+function Mfa({
+  onDone,
+  demo,
+}: {
+  onDone: () => Promise<void>;
+  /** demo mode only: show this enrolment instead of asking Supabase */
+  demo?: { qr: string; secret: string };
+}) {
   const [factorId, setFactorId] = useState<string | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
@@ -116,6 +164,12 @@ function Mfa({ onDone }: { onDone: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (demo) {
+      setFactorId("demo");
+      setQr(demo.qr);
+      setSecret(demo.secret);
+      return;
+    }
     void (async () => {
       const { data, error } = await supabase.auth.mfa.listFactors();
       if (error) return setErr("ما قدرناش نقرا عوامل التحقق.");
@@ -130,7 +184,7 @@ function Mfa({ onDone }: { onDone: () => Promise<void> }) {
       setQr(en.data.totp.qr_code);
       setSecret(en.data.totp.secret);
     })();
-  }, []);
+  }, [demo]);
 
   return (
     <form
@@ -138,6 +192,7 @@ function Mfa({ onDone }: { onDone: () => Promise<void> }) {
       onSubmit={async (e) => {
         e.preventDefault();
         if (!factorId || !/^\d{6}$/.test(code)) return setErr("اكتب الـ 6 أرقام.");
+        if (demo) return void (await onDone());
         setBusy(true);
         setErr("");
         const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code });
@@ -183,17 +238,11 @@ function Mfa({ onDone }: { onDone: () => Promise<void> }) {
   );
 }
 
-function Audit() {
-  type A = { id: number; at: string; action: string; target: string | null };
-  const [rows, setRows] = useState<A[]>([]);
+function Audit({ api, version = 0 }: { api: AdminApi; version?: number }) {
+  const [rows, setRows] = useState<AuditRow[]>([]);
   useEffect(() => {
-    void supabase
-      .from("audit_log")
-      .select("id, at, action, target")
-      .order("id", { ascending: false })
-      .limit(50)
-      .then(({ data }) => setRows((data as A[]) ?? []));
-  }, []);
+    void api.listAudit().then(setRows);
+  }, [api, version]);
   return (
     <section className="panel mt-5 overflow-x-auto">
       <h2 className="mb-2 font-bold">سجل العمليات (آخر 50)</h2>
@@ -216,7 +265,7 @@ function Audit() {
   );
 }
 
-function Login({ setup }: { setup: boolean }) {
+function Login({ setup, onDemo }: { setup: boolean; onDemo?: () => void }) {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [msg, setMsg] = useState("");
@@ -227,6 +276,7 @@ function Login({ setup }: { setup: boolean }) {
       onSubmit={async (e) => {
         e.preventDefault();
         setMsg("");
+        if (onDemo) return onDemo();
         if (mode === "in") {
           const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
           if (error) setMsg("بيانات الدخول غلط.");
@@ -272,32 +322,18 @@ function Login({ setup }: { setup: boolean }) {
   );
 }
 
-type Row = {
-  id: string;
-  ref: string | null;
-  plan: string;
-  uses: number;
-  max_uses: number;
-  note: string | null;
-  created_at: string | null;
-};
-
-function Codes() {
+function Codes({ api, onChange }: { api: AdminApi; onChange?: () => void }) {
   const [plan, setPlan] = useState<"single" | "family">("single");
   const [n, setN] = useState(1);
   const [note, setNote] = useState("");
   const [fresh, setFresh] = useState<string[]>([]);
-  const [rows, setRows] = useState<Row[]>([]);
+  const [rows, setRows] = useState<AdminCodeRow[]>([]);
   const [err, setErr] = useState("");
 
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from("activation_codes")
-      .select("id, ref, plan, uses, max_uses, note, created_at")
-      .order("created_at", { ascending: false })
-      .limit(200);
-    setRows((data as Row[]) ?? []);
-  }, []);
+    setRows(await api.listCodes());
+    onChange?.();
+  }, [api, onChange]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -308,14 +344,9 @@ function Codes() {
     const out: string[] = [];
     for (let i = 0; i < count; i++) {
       const c = genCode();
-      const { error } = await supabase.rpc("admin_create_code", {
-        p_hash: await sha256Hex(norm(c)),
-        p_plan: plan,
-        p_max_uses: 2,
-        p_note: note,
-      });
+      const error = await api.createCode(await sha256Hex(norm(c)), plan, note);
       if (error) {
-        setErr(error.message);
+        setErr(error);
         break;
       }
       out.push(c);
@@ -423,8 +454,8 @@ function Codes() {
                       className="btn-danger btn-sm"
                       onClick={async () => {
                         if (!r.ref) return;
-                        const { error } = await supabase.rpc("admin_revoke_code", { p_ref: r.ref });
-                        if (error) setErr("ما اتلغاش: " + error.message);
+                        const error = await api.revokeCode(r.ref);
+                        if (error) setErr("ما اتلغاش: " + error);
                         void load();
                       }}
                     >
@@ -438,5 +469,44 @@ function Codes() {
         </table>
       </section>
     </div>
+  );
+}
+
+/** Demo mode (VITE_DEMO_MODE=1): every admin screen with sample data, no backend. */
+function DemoAdmin() {
+  const [stage, setStage] = useState<"login" | "mfa" | "in">("login");
+  const [api] = useState(() => createDemoAdminApi());
+  const [mfa] = useState(() => ({ qr: DEMO_QR, secret: "DEMO SECR ETAA BBCC" }));
+  const [version, setVersion] = useState(0);
+  const bump = useCallback(() => setVersion((v) => v + 1), []);
+  const signOut = (
+    <button className="btn-ghost btn-sm" onClick={() => setStage("login")}>
+      خروج
+    </button>
+  );
+  if (stage === "login")
+    return (
+      <Page narrow>
+        <Login setup={false} onDemo={() => setStage("mfa")} />
+        <p className="mt-3 text-xs text-muted-foreground">تجريبي: أي إيميل وباسورد.</p>
+      </Page>
+    );
+  if (stage === "mfa")
+    return (
+      <Page narrow>
+        <Mfa demo={mfa} onDone={async () => setStage("in")} />
+        <p className="mt-3 text-xs text-muted-foreground">تجريبي: أي 6 أرقام.</p>
+        <div className="mt-3">{signOut}</div>
+      </Page>
+    );
+  return (
+    <Page>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-bold">الإدارة</h1>
+        {signOut}
+      </div>
+      <Codes api={api} onChange={bump} />
+      <Audit api={api} version={version} />
+    </Page>
   );
 }

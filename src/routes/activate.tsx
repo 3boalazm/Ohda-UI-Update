@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Page, meta } from "@/components/Brand";
 import { redeemActivation } from "@/lib/activation.functions";
+import { DEMO, DEMO_CODES, demoRedeem, writeDemoActivation } from "@/lib/demo";
 import { bundledPins } from "@/lib/entitlementKey";
 import { normalizeCode, randomBytes, toB64 } from "@/lib/ohdaCrypto";
 import { getActivation, storeActivation, type Activation } from "@/lib/plan";
@@ -16,6 +17,17 @@ export const Route = createFileRoute("/activate")({
     ),
   component: Activate,
 });
+
+const reasonText = (reason: string) =>
+  reason === "used"
+    ? "الكود ده اتستخدم قبل كده للحد الأقصى."
+    : reason === "rate_limited"
+      ? "محاولات كتير. استنى ساعة وجرّب تاني."
+      : reason === "unavailable"
+        ? "الخدمة مش متاحة دلوقتي. الكود ما اتحسبش — جرّب تاني بعد شوية."
+        : reason === "update_required"
+          ? "فيه نسخة أحدث من الموقع. اعمل تحديث للصفحة (Reload) وجرّب نفس الكود — ما اتحسبش."
+          : "الكود ده مش صحيح. راجعه تاني.";
 
 const wa = (pkg: string, from: string, price: string) =>
   `https://wa.me/${ORDER_WHATSAPP}?text=${encodeURIComponent(`عايز أفعّل عُهدة — باقة: ${pkg} — من: ${from} — السعر: ${price}`)}`;
@@ -33,6 +45,16 @@ function Activate() {
     e.preventDefault();
     setErr("");
     setBusy(true);
+    if (DEMO) {
+      await new Promise((res) => setTimeout(res, 600)); // feel of a network round trip
+      const d = demoRedeem(code);
+      setBusy(false);
+      if (!d.ok) return setErr(reasonText(d.reason));
+      writeDemoActivation(d.activation);
+      setAct(d.activation);
+      setCode("");
+      return;
+    }
     let r: Awaited<ReturnType<typeof redeemActivation>> | null = null;
     // One request id per code, reused on retry: a lost response never costs another use.
     const slot = "ohda-redeem-req:" + normalizeCode(code);
@@ -60,18 +82,7 @@ function Activate() {
 
     setBusy(false);
     if (!r) return setErr("مقدرناش نتأكد من الكود دلوقتي. جرّب تاني بعد شوية.");
-    if (!r.ok)
-      return setErr(
-        r.reason === "used"
-          ? "الكود ده اتستخدم قبل كده للحد الأقصى."
-          : r.reason === "rate_limited"
-            ? "محاولات كتير. استنى ساعة وجرّب تاني."
-            : r.reason === "unavailable"
-              ? "الخدمة مش متاحة دلوقتي. الكود ما اتحسبش — جرّب تاني بعد شوية."
-              : r.reason === "update_required"
-                ? "فيه نسخة أحدث من الموقع. اعمل تحديث للصفحة (Reload) وجرّب نفس الكود — ما اتحسبش."
-                : "الكود ده مش صحيح. راجعه تاني.",
-      );
+    if (!r.ok) return setErr(reasonText(r.reason));
     const a = await storeActivation(r.token, { kid: r.kid, publicKey: r.publicKey });
     // keep the retry id until the entitlement is stored and verified: a retry then replays the
     // same redemption instead of consuming another use
@@ -99,6 +110,18 @@ function Activate() {
           <Link to="/handover" className="btn-primary btn-sm mt-3">
             روح لسلّم أهلك
           </Link>
+          {DEMO && (
+            <button
+              type="button"
+              className="btn-ghost btn-sm mt-3 ms-2"
+              onClick={() => {
+                writeDemoActivation(null);
+                setAct(null);
+              }}
+            >
+              ألغِ التفعيل التجريبي
+            </button>
+          )}
         </div>
       )}
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -165,6 +188,28 @@ function Activate() {
         <p className="mt-2 text-xs text-muted-foreground">
           الكود بس هو اللي بيتبعت للتأكد منه — ولا حاجة من ملفك.
         </p>
+        {DEMO && (
+          <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+            <p>أكواد تجريبية:</p>
+            {(
+              [
+                [DEMO_CODES.single, "فردي"],
+                [DEMO_CODES.family, "باقة العيلة"],
+                [DEMO_CODES.used, "كود مستخدم (رسالة خطأ)"],
+              ] as const
+            ).map(([c, label]) => (
+              <button
+                key={c}
+                type="button"
+                className="block font-mono underline"
+                dir="ltr"
+                onClick={() => setCode(c)}
+              >
+                {c} — {label}
+              </button>
+            ))}
+          </div>
+        )}
       </form>
     </Page>
   );
