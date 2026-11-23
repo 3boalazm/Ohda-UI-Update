@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-fb+Wr/oyPL04ZfbkAq5T4ydf9+3qVsjhiTu6LOcAVEI='; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<title>ملف عُهدة — للأهل</title>
+<style>
+:root{--ink:#14213d;--muted:#5b6475;--line:#d9dee7;--bg:#f6f4ef;--card:#fff;--brand:#0f5c4d;--accent:#c8913a;--bad:#a4262c}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Tahoma,"Noto Naskh Arabic","Geeza Pro",Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.7}
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 60px}
+header{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.logo{width:40px;height:40px;border-radius:10px;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:700;font-size:22px}
+h1{font-size:22px;margin:0}
+h2{font-size:18px;margin:0 0 8px;color:var(--brand)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:14px 0}
+label{display:block;font-weight:600;margin:10px 0 6px}
+input{width:100%;font-size:18px;padding:12px;border:1px solid var(--line);border-radius:10px;direction:ltr;text-align:center;letter-spacing:1px;font-family:Consolas,monospace}
+button{background:var(--brand);color:#fff;border:0;border-radius:10px;padding:12px 18px;font-size:17px;font-weight:600;cursor:pointer;width:100%;margin-top:14px}
+button.secondary{background:#fff;color:var(--brand);border:1px solid var(--brand);width:auto}
+.err{color:var(--bad);font-weight:600;margin-top:10px;min-height:1em}
+.muted{color:var(--muted);font-size:14px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+td,th{border-bottom:1px solid var(--line);padding:8px 6px;text-align:right;vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:13px}
+.steps{white-space:pre-wrap;background:#fff7e8;border:1px solid #f0d9ae;border-radius:10px;padding:12px}
+.kv div{display:flex;gap:8px;border-bottom:1px solid var(--line);padding:6px 0}
+.kv b{min-width:150px;color:var(--muted);font-weight:600}
+.notice{background:#eef5f3;border:1px solid #cfe3dd;border-radius:10px;padding:12px;font-size:14px}
+@media print{.noprint{display:none!important}body{background:#fff}.card{border:1px solid #999;break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><div class="logo">ع</div><div><h1>ملف عُهدة للأهل</h1><div class="muted">الملف ده مشفّر. محدش يقدر يقراه من غير الكود المطبوع.</div></div></header>
+
+  <div id="unlock" class="card noprint">
+    <h2>افتح الملف</h2>
+    <p class="muted">اكتب الكود اللي على الكارت المطبوع. مش مهم الشرطات أو الحروف الكبيرة والصغيرة.</p>
+    <label for="c1">الكود</label>
+    <input id="c1" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX">
+    <div id="c2box" style="display:none">
+      <label for="c2">الكود التاني (مع الشخص التاني)</label>
+      <input id="c2" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX">
+    </div>
+    <button id="go">افتح الملف</button>
+    <div id="err" class="err" role="alert"></div>
+    <p class="muted">الفتح بيحصل على جهازك بس، ومفيش أي حاجة بتتبعت لأي مكان. لو الصفحة دي مش شغالة على الموبايل، افتح الملف من موقع عُهدة: صفحة «افتح ملف أهلك».</p>
+  </div>
+
+  <div id="out"></div>
+</div>
+
+<script id="ohda-data" type="application/json">/*__OHDA_DATA__*/</script>
+<script>
+(function(){
+"use strict";
+var ALPH="0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+var AAD=new TextEncoder().encode("ohda:v1");
+var INFO=new TextEncoder().encode("ohda family v1");
+function fromB64(s){var b=atob(s),o=new Uint8Array(b.length);for(var i=0;i<b.length;i++)o[i]=b.charCodeAt(i);return o;}
+function norm(s){return String(s||"").replace(/[\u0660-\u0669]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0x0630);}).replace(/[\u06F0-\u06F9]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0x06C0);}).replace(/[\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);}).toUpperCase().replace(/[\s\-_.]/g,"").replace(/O/g,"0").replace(/[IL]/g,"1").replace(/U/g,"V");}
+function b32(s,n){var bits=0,val=0,out=[];for(var i=0;i<s.length;i++){var v=ALPH.indexOf(s[i]);if(v<0)throw new Error("في حرف مش مسموح في الكود");val=((val<<5)|v)&0xffff;bits+=5;if(bits>=8){out.push((val>>>(bits-8))&255);bits-=8;}}if(out.length<n)throw new Error("الكود ناقص");return new Uint8Array(out.slice(0,n));}
+function sum(b){var a=1,c=0;for(var i=0;i<b.length;i++){a=(a+b[i])%1021;c=(c+a)%1021;}var v=(a*31+c)%1024;return ALPH[(v>>5)&31]+ALPH[v&31];}
+function enc32(b){var bits=0,val=0,out="";for(var i=0;i<b.length;i++){val=((val<<8)|b[i])&0xffff;bits+=8;while(bits>=5){bits-=5;out+=ALPH[(val>>>bits)&31];}}if(bits>0)out+=ALPH[(val<<(5-bits))&31];return out;}
+function parse(input){var s=norm(input);if(s.length!==28)throw new Error("الكود لازم يكون 28 حرف/رقم");var data=s.slice(0,26);var sec=b32(data,16);if(enc32(sec)!==data||sum(sec)!==s.slice(26)){sec.fill(0);throw new Error("في غلطة في كتابة الكود — راجعه حرف حرف");}return sec;}
+function xor(a,b){var o=new Uint8Array(a.length);for(var i=0;i<a.length;i++)o[i]=a[i]^b[i];return o;}
+function esc(x){return String(x==null?"":x).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];});}
+
+var env;
+try{env=JSON.parse(document.getElementById("ohda-data").textContent);}catch(e){env=null;}
+var wrap=env&&env.wraps&&env.wraps.filter(function(w){return w.type==="code";})[0];
+if(!env||env.format!=="ohda"||!wrap){document.getElementById("err").textContent="الملف ده ناقص أو اتعدّل.";document.getElementById("go").disabled=true;return;}
+if(wrap.mode==="split2")document.getElementById("c2box").style.display="block";
+if(!window.crypto||!crypto.subtle){document.getElementById("err").textContent="المتصفح ده مش بيدعم فك التشفير هنا. افتح الملف من موقع عُهدة.";}
+
+async function open(){
+  var err=document.getElementById("err");err.textContent="";
+  var secret,a,b,dk,pt;
+  try{
+    if(wrap.mode==="split2"){a=parse(document.getElementById("c1").value);b=parse(document.getElementById("c2").value);secret=xor(a,b);}
+    else secret=parse(document.getElementById("c1").value);
+  }catch(e){err.textContent=e.message;if(a)a.fill(0);if(b)b.fill(0);return;}
+  finally{if(a&&secret)a.fill(0);if(b&&secret)b.fill(0);}
+  try{
+    var base=await crypto.subtle.importKey("raw",secret,"HKDF",false,["deriveKey"]);
+    var k=await crypto.subtle.deriveKey({name:"HKDF",hash:"SHA-256",salt:fromB64(wrap.salt),info:INFO},base,{name:"AES-GCM",length:256},false,["decrypt"]);
+    dk=new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM",iv:fromB64(wrap.iv),additionalData:AAD},k,fromB64(wrap.wk)));
+    var key=await crypto.subtle.importKey("raw",dk,"AES-GCM",false,["decrypt"]);
+    pt=new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM",iv:fromB64(env.iv),additionalData:AAD},key,fromB64(env.ct)));
+    render(JSON.parse(new TextDecoder().decode(pt)));
+  }catch(e){err.textContent="الكود مش مطابق للملف ده.";}
+  finally{secret.fill(0);if(dk)dk.fill(0);if(pt)pt.fill(0);}
+}
+document.getElementById("go").addEventListener("click",open);
+
+function table(rows,cols){
+  rows=(rows||[]).filter(function(r){return cols.some(function(c){return r&&r[c[0]];});});
+  if(!rows.length)return "";
+  var h="<table><tr>"+cols.map(function(c){return "<th>"+c[1]+"</th>";}).join("")+"</tr>";
+  rows.forEach(function(r){h+="<tr>"+cols.map(function(c){return "<td><bdi>"+esc(r[c[0]])+"</bdi></td>";}).join("")+"</tr>";});
+  return h+"</table>";
+}
+function kv(obj,fields){
+  var h="";fields.forEach(function(f){if(obj&&obj[f[0]])h+="<div><b>"+f[1]+"</b><bdi>"+esc(obj[f[0]])+"</bdi></div>";});
+  return h?"<div class='kv'>"+h+"</div>":"";
+}
+function card(title,body){return body?"<div class='card'><h2>"+title+"</h2>"+body+"</div>":"";}
+
+function render(p){
+  document.getElementById("unlock").style.display="none";
+  var o=p.owner||{},w=p.work||{};
+  var h="";
+  h+="<div class='card'><h2>ملف "+esc(o.name||"")+"</h2><div class='muted'>آخر تحديث: "+esc((p.updated||"").slice(0,10))+"</div>"+
+     "<p class='notice'>الملف ده دليل عملي كتبه صاحبه عشان يساعدكم تبدأوا. مش وصية شرعية ولا مستند قانوني، ومش بيدّي حد صلاحية على أي حساب. تأكدوا من أي إجراء من الجهة الرسمية.</p>"+
+     "<button class='secondary noprint' id='printBtn' type='button'>اطبع الملف</button></div>";
+  if(p.firstSteps)h+=card("ابدأوا من هنا","<div class='steps'>"+esc(p.firstSteps)+"</div>");
+  h+=card("مين تكلموا الأول",table(p.contacts,[["name","الاسم"],["relation","الصلة"],["phone","الرقم"],["note","ليه"]]));
+  h+=card("بياناته الأساسية",kv(o,[["name","الاسم"],["phone","الموبايل"],["city","المدينة"],["notes","ملاحظات"]]));
+  h+=card("الشغل في السعودية",kv(w,[["employer","جهة العمل"],["employerPhone","تليفون جهة العمل"],["hrContact","مسؤول الموارد البشرية"],["jobTitle","الوظيفة"],["startDate","بداية العمل"],["iqamaLast4","آخر 4 أرقام من الإقامة"],["gosi","التأمينات الاجتماعية (GOSI)"],["contractLocation","العقد فين"],["notes","ملاحظات"]]));
+  h+=card("البنوك",table(p.banks,[["name","البنك"],["country","البلد"],["type","نوع الحساب"],["note","ملاحظة"]]));
+  h+=card("التأمين",table(p.insurance,[["company","الشركة"],["type","النوع"],["policyRef","مرجع الوثيقة"],["note","ملاحظة"]]));
+  h+=card("فلوس ليه عند ناس",table(p.owedToMe,[["who","مين"],["amount","المبلغ"],["currency","العملة"],["proof","الإثبات فين"]]));
+  h+=card("فلوس عليه لناس",table(p.iOwe,[["to","لمين"],["amount","المبلغ"],["currency","العملة"],["how","إزاي تتدفع"]]));
+  h+=card("الأملاك والأوراق",table(p.assets,[["item","الحاجة"],["location","مكانها"],["holder","مع مين"]]));
+  if(p.wishes)h+=card("رغبات (غير ملزمة)","<div class='steps'>"+esc(p.wishes)+"</div>");
+  h+=card("جهات ممكن تساعدكم","<ul>"+
+    "<li>لو كان شغّال في السعودية: جهة العمل المكتوبة فوق، ومكتب التمثيل العمالي المصري التابع للسفارة أو القنصلية المصرية في السعودية لمتابعة المستحقات.</li>"+
+    "<li>الحسابات البنكية في السعودية: البنك المركزي السعودي (ساما) عنده خدمة للورثة للاستعلام عن حسابات المتوفى.</li>"+
+    "<li>الحسابات البنكية في مصر: البنك المركزي المصري بيتيح للورثة الاستعلام عن حسابات المتوفى في كل البنوك.</li>"+
+    "<li>الإجراءات بتتغير، فاتأكدوا دايمًا من الموقع الرسمي للجهة.</li></ul>");
+  document.getElementById("out").innerHTML=h;
+  var pb=document.getElementById("printBtn");if(pb)pb.addEventListener("click",function(){window.print();});
+}
+})();
+</script>
+</body>
+</html>

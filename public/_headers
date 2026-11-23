@@ -1,0 +1,20 @@
+/*
+  Strict-Transport-Security: max-age=63072000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), magnetometer=(), gyroscope=(), accelerometer=(), browsing-topics=()
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+  X-Permitted-Cross-Domain-Policies: none
+
+/family-template.html
+  Content-Security-Policy: default-src 'none'; script-src 'sha256-fb+Wr/oyPL04ZfbkAq5T4ydf9+3qVsjhiTu6LOcAVEI='; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Cache-Control: no-cache
+
+/family-template
+  Content-Security-Policy: default-src 'none'; script-src 'sha256-fb+Wr/oyPL04ZfbkAq5T4ydf9+3qVsjhiTu6LOcAVEI='; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Cache-Control: no-cache
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

@@ -1,0 +1,5 @@
+Contact: mailto:admin@codeandcanvas.net
+Expires: 2027-10-31T00:00:00.000Z
+Preferred-Languages: ar, en
+Canonical: https://ohda.codeandcanvas.net/.well-known/security.txt
+Policy: https://ohda.codeandcanvas.net/security
