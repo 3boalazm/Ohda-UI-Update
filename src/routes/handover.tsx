@@ -1,4 +1,4 @@
-import { bothPrices } from "@/lib/pricing";
+import { PLAN_NAME, priceLabel } from "@/lib/pricing";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Page, meta, LogoMark } from "@/components/Brand";
@@ -15,6 +15,7 @@ import {
   type Activation,
   type Plan,
 } from "@/lib/plan";
+import { SECTION_LABELS, missingKeySections, sensitiveFindings } from "@/lib/review";
 import { useVault } from "@/lib/vault";
 
 export const Route = createFileRoute("/handover")({
@@ -75,9 +76,25 @@ function NotActivated() {
         <li>تجربة الفتح بملف تجريبي</li>
         <li>تحديثات بلا حدود</li>
       </ul>
-      <p className="mt-4 font-semibold">
-        فردي: {bothPrices("single")} · باقة العيلة: {bothPrices("family")} — مرة واحدة
-      </p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {(["single", "family"] as const).map((plan) => (
+          <div
+            key={plan}
+            className={
+              plan === "family"
+                ? "rounded-2xl border border-gold bg-card p-4"
+                : "rounded-2xl border border-border bg-card p-4"
+            }
+          >
+            <h2 className="font-bold">{PLAN_NAME[plan]}</h2>
+            <p className="mt-1 text-xl font-bold text-primary">{priceLabel(plan, "EG")}</p>
+            <p className="text-sm font-semibold">{priceLabel(plan, "INTL")} من برّه مصر</p>
+            <p className="text-sm text-muted-foreground">
+              {plan === "family" ? "3 أكواد — مرة واحدة" : "مرة واحدة"}
+            </p>
+          </div>
+        ))}
+      </div>
       <Link to="/activate" className="btn-primary mt-4">
         فعّل دلوقتي
       </Link>
@@ -109,6 +126,11 @@ function Flow() {
   const [busy, setBusy] = useState(false);
   const [printMode, setPrintMode] = useState<"real" | "demo" | null>(null);
   const [demo, setDemo] = useState<{ codes: string[] } | null>(null);
+  // Review of sensitive text in the family file (step 3); the download waits for it.
+  const [reviewed, setReviewed] = useState(false);
+  const findings = sensitiveFindings(s.plan);
+  const missing = missingKeySections(s.plan);
+  const needsReview = findings.length > 0 && !reviewed;
 
   async function prepare() {
     setBusy(true);
@@ -432,9 +454,40 @@ function Flow() {
             ابعت الملف ده لأهلك على واتساب أو احفظه عندهم في Drive. الملف لوحده مش بيفتح من غير
             الكود. بعد أي تعديل نزّله تاني وابعته — من غير دفع تاني.
           </p>
+          {findings.length > 0 && (
+            <div className="warn mt-3" role="status">
+              <ul className="list-disc space-y-1 pr-5">
+                {findings.map((f) => (
+                  <li key={f.section}>
+                    في «{f.label}»: {f.warnings.join("، ")}
+                  </li>
+                ))}
+              </ul>
+              <label className="mt-2 flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  className="mt-1.5"
+                  checked={reviewed}
+                  onChange={(e) => setReviewed(e.target.checked)}
+                />
+                <span>راجعتها، ومفيش أرقام حسابات كاملة ولا كلمات سر في الملف</span>
+              </label>
+            </div>
+          )}
+          {missing.length > 0 && (
+            <div className="notice mt-3" role="status">
+              <p>
+                لسه فاضي: {missing.map((k) => `«${SECTION_LABELS[k]}»`).join("، ")} — ممكن تكمّلهم
+                من صفحة الملف قبل ما تنزّله.
+              </p>
+              <Link to="/file" className="btn-outline btn-sm mt-2">
+                ارجع للملف
+              </Link>
+            </div>
+          )}
           <button
             className="btn-primary mt-3"
-            disabled={!existing || (!!pending && !activated)}
+            disabled={!existing || (!!pending && !activated) || needsReview}
             onClick={exportFamily}
           >
             نزّل ملف-عهدة-للأهل.html
