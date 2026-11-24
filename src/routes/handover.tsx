@@ -477,8 +477,8 @@ function Flow() {
           {missing.length > 0 && (
             <div className="notice mt-3" role="status">
               <p>
-                لسه فاضي: {missing.map((k) => `«${SECTION_LABELS[k]}»`).join("، ")} — ممكن تكمّلهم
-                من صفحة الملف قبل ما تنزّله.
+                لسه فاضي: {missing.map((k) => `«${SECTION_LABELS[k]}»`).join("، ")} — ممكن تكمّلهم من
+                صفحة الملف قبل ما تنزّله.
               </p>
               <Link to="/file" className="btn-outline btn-sm mt-2">
                 ارجع للملف

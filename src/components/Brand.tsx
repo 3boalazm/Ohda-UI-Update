@@ -59,7 +59,10 @@ export function Header() {
             <span className="sm:hidden">ملف أهلك</span>
             <span className="hidden sm:inline">افتح ملف أهلك</span>
           </Link>
-          <Link to="/start" className="btn-primary btn-sm inline-flex min-h-11 items-center sm:min-h-0">
+          <Link
+            to="/start"
+            className="btn-primary btn-sm inline-flex min-h-11 items-center sm:min-h-0"
+          >
             ملفي
           </Link>
         </nav>

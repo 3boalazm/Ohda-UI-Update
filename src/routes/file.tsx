@@ -307,9 +307,7 @@ function FilePage() {
             <p className="font-semibold">قبل ما تسلّم ملفك:</p>
             {missing.map((k) => (
               <div key={`missing-${k}`} className="space-y-2">
-                <p>
-                  «{SECTION_LABELS[k]}» لسه فاضي — ده من أول الحاجات اللي أهلك هيدوّروا عليها.
-                </p>
+                <p>«{SECTION_LABELS[k]}» لسه فاضي — ده من أول الحاجات اللي أهلك هيدوّروا عليها.</p>
                 <button
                   className="btn-outline btn-sm"
                   onClick={() => {
