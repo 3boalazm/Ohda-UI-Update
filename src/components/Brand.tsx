@@ -51,10 +51,18 @@ export function Header() {
           </span>
         </Link>
         <nav className="flex items-center gap-1 text-sm">
-          <Link to="/open" className="hidden rounded-lg px-2 py-1.5 hover:bg-secondary sm:inline">
-            افتح ملف أهلك
+          <Link
+            to="/open"
+            aria-label="افتح ملف أهلك"
+            className="inline-flex min-h-11 items-center rounded-lg px-2 py-1.5 hover:bg-secondary sm:min-h-0"
+          >
+            <span className="sm:hidden">ملف أهلك</span>
+            <span className="hidden sm:inline">افتح ملف أهلك</span>
           </Link>
-          <Link to="/start" className="btn-primary btn-sm">
+          <Link
+            to="/start"
+            className="btn-primary btn-sm inline-flex min-h-11 items-center sm:min-h-0"
+          >
             ملفي
           </Link>
         </nav>

@@ -4,6 +4,14 @@ import { Page, meta } from "@/components/Brand";
 import { Area, Field, NeedUnlock } from "@/components/Fields";
 import { PlanView } from "@/components/PlanView";
 import { MAX_ROWS, completion, downloadBlob, familyCopy, today, type Plan } from "@/lib/plan";
+import {
+  KEY_SECTIONS,
+  SECTION_LABELS,
+  SECTION_ORDER,
+  missingKeySections,
+  sectionDone,
+  sensitiveFindings,
+} from "@/lib/review";
 import { useVault } from "@/lib/vault";
 
 export const Route = createFileRoute("/file")({
@@ -115,6 +123,7 @@ function FilePage() {
   const p = v.session.plan;
   const u = v.update;
   const pct = completion(p);
+  const done = sectionDone(p);
   const setOwner = (k: keyof Plan["owner"]) => (val: string) =>
     u((x) => ({ ...x, owner: { ...x.owner, [k]: val } }));
   const setWork = (k: keyof Plan["work"]) => (val: string) =>
@@ -282,7 +291,9 @@ function FilePage() {
     </div>,
   ];
 
-  if (preview)
+  if (preview) {
+    const missing = missingKeySections(p);
+    const findings = sensitiveFindings(p);
     return (
       <Page narrow>
         <div className="noprint mb-4 flex items-center justify-between gap-2">
@@ -291,9 +302,48 @@ function FilePage() {
             ارجع للتعديل
           </button>
         </div>
+        {(missing.length > 0 || findings.length > 0) && (
+          <div className="noprint warn mb-4 space-y-3">
+            <p className="font-semibold">قبل ما تسلّم ملفك:</p>
+            {missing.map((k) => (
+              <div key={`missing-${k}`} className="space-y-2">
+                <p>«{SECTION_LABELS[k]}» لسه فاضي — ده من أول الحاجات اللي أهلك هيدوّروا عليها.</p>
+                <button
+                  className="btn-outline btn-sm"
+                  onClick={() => {
+                    setPreview(false);
+                    setStep(SECTION_ORDER.indexOf(k));
+                  }}
+                >
+                  كمّله
+                </button>
+              </div>
+            ))}
+            {findings.map((f) => (
+              <div key={`sensitive-${f.section}`} className="space-y-2">
+                <p>في «{f.label}»:</p>
+                <ul className="list-disc space-y-1 ps-5">
+                  {f.warnings.map((w) => (
+                    <li key={w}>{w}</li>
+                  ))}
+                </ul>
+                <button
+                  className="btn-outline btn-sm"
+                  onClick={() => {
+                    setPreview(false);
+                    setStep(SECTION_ORDER.indexOf(f.section));
+                  }}
+                >
+                  عدّله
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <PlanView plan={familyCopy(p)} />
       </Page>
     );
+  }
 
   return (
     <Page>
@@ -376,15 +426,28 @@ function FilePage() {
       </div>
       <div className="grid gap-5 md:grid-cols-[220px_1fr]">
         <nav className="flex gap-2 overflow-x-auto pb-1 md:flex-col md:overflow-visible">
-          {SECTIONS.map((s, i) => (
-            <button
-              key={s}
-              onClick={() => setStep(i)}
-              className={`shrink-0 rounded-lg px-3 py-2 text-right text-sm ${i === step ? "bg-primary text-primary-foreground" : "bg-card hover:bg-secondary"}`}
-            >
-              {i + 1}. {s}
-            </button>
-          ))}
+          {SECTIONS.map((s, i) => {
+            const key = SECTION_ORDER[i];
+            return (
+              <button
+                key={s}
+                onClick={() => setStep(i)}
+                className={`shrink-0 rounded-lg px-3 py-2 text-right text-sm ${i === step ? "bg-primary text-primary-foreground" : "bg-card hover:bg-secondary"}`}
+              >
+                {i + 1}. {s}
+                {key !== undefined && done[key] && (
+                  <span className="ms-1" role="img" aria-label="مكتمل">
+                    ✓
+                  </span>
+                )}
+                {key !== undefined && !done[key] && KEY_SECTIONS.includes(key) && (
+                  <span className="ms-1 text-gold" title="مهم لأهلك">
+                    •
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
         <section className="panel">
           <h2 className="mb-4 text-xl font-bold text-primary">{SECTIONS[step]}</h2>
