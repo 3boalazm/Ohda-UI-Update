@@ -169,7 +169,7 @@ export function StepItem({
         aria-hidden="true"
         className={`relative z-[1] grid size-9 place-items-center rounded-full border-2 text-sm font-bold ${dot}`}
       >
-        {state === "done" ? "✓" : n.toLocaleString("ar-EG")}
+        {state === "done" ? "✓" : n}
       </span>
       <div className={`min-w-0 ${last ? "" : "pb-6"}`}>
         <h2

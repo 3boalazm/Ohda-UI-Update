@@ -87,7 +87,7 @@ function Landing() {
           ].map(([t, d], i) => (
             <li key={t} className="flex items-start gap-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-full border-2 border-gold font-bold text-gold-ink">
-                {(i + 1).toLocaleString("ar-EG")}
+                {i + 1}
               </span>
               <span>
                 <span className="block font-semibold">{t}</span>

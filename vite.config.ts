@@ -15,5 +15,7 @@ export default defineConfig({
   vite: {
     // UI/UX demo mode (src/lib/demo.ts): a literal, so normal builds drop all demo code.
     define: { __OHDA_DEMO__: JSON.stringify(process.env["VITE_DEMO_MODE"] === "1") },
+    // Fonts must stay real files: the CSP allows font-src 'self' only, so a data: font is blocked.
+    build: { assetsInlineLimit: (file: string) => (/\.woff2?$/.test(file) ? false : undefined) },
   },
 });

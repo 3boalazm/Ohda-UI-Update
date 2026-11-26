@@ -95,7 +95,7 @@ function Rows({
         </div>
       )}
       {rows.map((r, i) => {
-        const title = `${itemLabel} ${(i + 1).toLocaleString("ar-EG")}`;
+        const title = `${itemLabel} ${i + 1}`;
         const name = (r[firstKey] ?? "").trim();
         return (
           <fieldset key={i} className="subpanel">
@@ -120,7 +120,7 @@ function Rows({
                 شيل
               </button>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
               {cols.map((c) => (
                 <Field
                   key={c.k}
@@ -225,7 +225,7 @@ function FilePage() {
   }
 
   const body = [
-    <div key={0} className="grid gap-3 sm:grid-cols-2">
+    <div key={0} className="grid gap-3 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
       <Field label="الاسم" value={p.owner.name} onChange={setOwner("name")} />
       <Field label="الموبايل" value={p.owner.phone} onChange={setOwner("phone")} dirLtr />
       <Field
@@ -261,7 +261,7 @@ function FilePage() {
         { k: "note", l: "ليه تكلموه", ph: "عارف حاجات الشغل" },
       ]}
     />,
-    <div key={3} className="grid gap-3 sm:grid-cols-2">
+    <div key={3} className="grid gap-3 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
       <Field label="جهة العمل" value={p.work.employer} onChange={setWork("employer")} />
       <Field
         label="تليفون جهة العمل"
@@ -298,7 +298,7 @@ function FilePage() {
         value={p.work.contractLocation}
         onChange={setWork("contractLocation")}
       />
-      <div className="sm:col-span-2">
+      <div className="sm:col-span-2 md:col-span-1 lg:col-span-2">
         <Area label="ملاحظات" rows={3} value={p.work.notes} onChange={setWork("notes")} />
       </div>
     </div>,
@@ -543,8 +543,7 @@ function FilePage() {
           <div className="flex justify-between gap-2 text-sm">
             <span className="font-semibold">اكتمال الملف</span>
             <span className="text-muted-foreground tabular-nums">
-              {doneCount.toLocaleString("ar-EG")} من {SECTIONS.length.toLocaleString("ar-EG")} أقسام
-              · {pct}%
+              {doneCount} من {SECTIONS.length} أقسام · {pct}%
             </span>
           </div>
           <div
@@ -578,8 +577,7 @@ function FilePage() {
           >
             <span className="min-w-0">
               <span className="block text-xs text-muted-foreground">
-                القسم {(step + 1).toLocaleString("ar-EG")} من{" "}
-                {SECTIONS.length.toLocaleString("ar-EG")}
+                القسم {step + 1} من {SECTIONS.length}
               </span>
               <span className="block truncate font-semibold">{SECTIONS[step]}</span>
             </span>
@@ -601,7 +599,7 @@ function FilePage() {
                 >
                   <span className="min-w-0">
                     <span className={`tabular-nums ${i === step ? "" : "text-muted-foreground"}`}>
-                      {(i + 1).toLocaleString("ar-EG")}.
+                      {i + 1}.
                     </span>{" "}
                     {s}
                   </span>
@@ -651,7 +649,7 @@ function FilePage() {
         className="noprint mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gold/40 bg-gold-soft px-5 py-4"
         aria-label="النسخة الاحتياطية"
       >
-        <div className="min-w-0 flex-1 space-y-0.5">
+        <div className="min-w-[15rem] flex-1 space-y-0.5">
           <p className="font-semibold">
             {backedUp === p
               ? "✓ نزّلت نسخة احتياطية بعد آخر تعديل"

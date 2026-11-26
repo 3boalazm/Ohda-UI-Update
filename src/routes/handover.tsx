@@ -270,9 +270,9 @@ function Flow({ act }: { act: Activation }) {
   const st3: StepState = downloaded ? "done" : codeDone ? "current" : "upcoming";
   const st4: StepState = demo ? "done" : codeDone ? "current" : "upcoming";
   const downloadBlocked = !existing
-    ? "اعمل الكود وأكّد الكروت في خطوة ٢ الأول."
+    ? "اعمل الكود وأكّد الكروت في خطوة 2 الأول."
     : pending && !activated
-      ? "أكّد الكروت الجديدة في خطوة ٢ الأول."
+      ? "أكّد الكروت الجديدة في خطوة 2 الأول."
       : needsReview
         ? "علّم على «راجعتها» فوق عشان تقدر تنزّل."
         : null;
@@ -286,7 +286,7 @@ function Flow({ act }: { act: Activation }) {
           <span className="chip-done">✓ متفعّل · {PLAN_NAME[act.plan]}</span>
         </div>
         <p className="text-muted-foreground">
-          ٤ خطوات: تختار مين يمسك الكود، تطبع الكارت، تنزّل ملف الأهل وتبعته، وتجرّبوا الفتح.
+          4 خطوات: تختار مين يمسك الكود، تطبع الكارت، تنزّل ملف الأهل وتبعته، وتجرّبوا الفتح.
         </p>
       </div>
 
@@ -338,7 +338,7 @@ function Flow({ act }: { act: Activation }) {
                 ))}
                 {existing && (
                   <p className="field-hint">
-                    الطريقة دي ثابتة للكود الشغّال. تقدر تغيّرها لما تعمل كود جديد في خطوة ٢.
+                    الطريقة دي ثابتة للكود الشغّال. تقدر تغيّرها لما تعمل كود جديد في خطوة 2.
                   </p>
                 )}
               </fieldset>
