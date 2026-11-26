@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Page, meta } from "@/components/Brand";
 import { Area, Field, NeedUnlock } from "@/components/Fields";
 import { PlanView } from "@/components/PlanView";
@@ -47,14 +47,29 @@ function Rows({
   cols,
   upd,
   addLabel,
+  itemLabel,
+  example,
 }: {
   plan: Plan;
   list: ListKey;
   cols: ColDef[];
   upd: (fn: (p: Plan) => Plan) => void;
   addLabel: string;
+  /** what one row is called, for its title ("بنك ١") */
+  itemLabel: string;
+  /** one example line for the empty state */
+  example: string;
 }) {
   const rows = plan[list] as unknown as Record<string, string>[];
+  // last removed row, so it can be put back for a few seconds
+  const [removed, setRemoved] = useState<{ row: Record<string, string>; index: number } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!removed) return;
+    const t = setTimeout(() => setRemoved(null), 8000);
+    return () => clearTimeout(t);
+  }, [removed]);
   const set = (i: number, k: string, v: string) =>
     upd((p) => ({
       ...p,
@@ -62,44 +77,98 @@ function Rows({
         j === i ? { ...r, [k]: v } : r,
       ),
     }));
+  const add = () =>
+    upd((p) => ({
+      ...p,
+      [list]: [...(p[list] as unknown[]), Object.fromEntries(cols.map((c) => [c.k, ""]))],
+    }));
+  const firstKey = cols[0]?.k ?? "";
   return (
     <div className="space-y-4">
-      {rows.map((r, i) => (
-        <div key={i} className="rounded-xl border border-border bg-background p-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {cols.map((c) => (
-              <Field
-                key={c.k}
-                label={c.l}
-                placeholder={c.ph}
-                value={r[c.k] ?? ""}
-                sensitive={c.sensitive}
-                onChange={(v) => set(i, c.k, v)}
-              />
-            ))}
-          </div>
-          <button
-            className="btn-ghost btn-sm mt-2 text-destructive"
-            onClick={() =>
-              upd((p) => ({ ...p, [list]: (p[list] as unknown[]).filter((_, j) => j !== i) }))
-            }
-          >
-            شيل ده
+      {rows.length === 0 && !removed && (
+        <div className="rounded-xl border-[1.5px] border-dashed border-input p-5 text-center">
+          <p className="font-semibold">لسه ما ضفتش حاجة هنا</p>
+          <p className="mt-1 text-sm text-muted-foreground">{example}</p>
+          <button type="button" className="btn-outline btn-sm mt-3" onClick={add}>
+            + {addLabel}
           </button>
         </div>
-      ))}
-      <button
-        className="btn-outline btn-sm"
-        disabled={rows.length >= MAX_ROWS}
-        onClick={() =>
-          upd((p) => ({
-            ...p,
-            [list]: [...(p[list] as unknown[]), Object.fromEntries(cols.map((c) => [c.k, ""]))],
-          }))
-        }
-      >
-        + {addLabel}
-      </button>
+      )}
+      {rows.map((r, i) => {
+        const title = `${itemLabel} ${(i + 1).toLocaleString("ar-EG")}`;
+        const name = (r[firstKey] ?? "").trim();
+        return (
+          <fieldset key={i} className="subpanel">
+            <legend className="sr-only">{title}</legend>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="min-w-0 truncate font-semibold" aria-hidden="true">
+                {title}
+                {name && <span className="font-normal text-muted-foreground"> · {name}</span>}
+              </p>
+              <button
+                type="button"
+                className="btn-ghost btn-sm shrink-0 text-destructive hover:bg-destructive/5"
+                aria-label={`شيل ${title}`}
+                onClick={() => {
+                  setRemoved({ row: r, index: i });
+                  upd((p) => ({
+                    ...p,
+                    [list]: (p[list] as unknown[]).filter((_, j) => j !== i),
+                  }));
+                }}
+              >
+                شيل
+              </button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {cols.map((c) => (
+                <Field
+                  key={c.k}
+                  label={c.l}
+                  placeholder={c.ph}
+                  value={r[c.k] ?? ""}
+                  sensitive={c.sensitive}
+                  onChange={(v) => set(i, c.k, v)}
+                />
+              ))}
+            </div>
+          </fieldset>
+        );
+      })}
+      {removed && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-foreground px-4 py-2.5 text-sm text-background"
+          role="status"
+        >
+          <span>اتشال {itemLabel}.</span>
+          <button
+            type="button"
+            className="font-semibold text-gold-light underline underline-offset-4"
+            onClick={() => {
+              const { row, index } = removed;
+              setRemoved(null);
+              upd((p) => {
+                const next = [...(p[list] as unknown[])];
+                if (next.length >= MAX_ROWS) return p;
+                next.splice(Math.min(index, next.length), 0, row);
+                return { ...p, [list]: next };
+              });
+            }}
+          >
+            تراجع
+          </button>
+        </div>
+      )}
+      {rows.length > 0 && (
+        <button
+          type="button"
+          className="btn-outline btn-sm"
+          disabled={rows.length >= MAX_ROWS}
+          onClick={add}
+        >
+          + {addLabel}
+        </button>
+      )}
     </div>
   );
 }
@@ -114,6 +183,11 @@ function FilePage() {
   const [lockProblem, setLockProblem] = useState(false);
   const [recoveryDownloaded, setRecoveryDownloaded] = useState(false);
   const [recoveryKept, setRecoveryKept] = useState(false);
+  // UI only: the plan object as it was at the last backup in this session (plans are replaced on
+  // every edit, so identity tells whether anything changed since), and the mobile section list.
+  const [backedUp, setBackedUp] = useState<Plan | null>(null);
+  const [navOpen, setNavOpen] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
   if (!v.session)
     return (
       <Page narrow>
@@ -136,7 +210,18 @@ function FilePage() {
     const env = await v.exportSnapshot();
     if (!env) return false;
     downloadBlob(JSON.stringify(env), `ohda-backup-${today()}.ohda`, "application/json");
+    setBackedUp(p);
     return true;
+  }
+
+  /** Go to a section and bring its heading into view if it scrolled away. */
+  function goTo(i: number) {
+    setStep(i);
+    setNavOpen(false);
+    requestAnimationFrame(() => {
+      const el = sectionRef.current;
+      if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: "start" });
+    });
   }
 
   const body = [
@@ -167,6 +252,8 @@ function FilePage() {
       upd={u}
       list="contacts"
       addLabel="ضيف شخص"
+      itemLabel="شخص"
+      example="مثلًا: محمد · أخويا · عارف حاجات الشغل"
       cols={[
         { k: "name", l: "الاسم" },
         { k: "relation", l: "الصلة", ph: "أخ، زميل، صاحب…" },
@@ -221,6 +308,8 @@ function FilePage() {
       upd={u}
       list="banks"
       addLabel="ضيف بنك"
+      itemLabel="بنك"
+      example="مثلًا: الراجحي · السعودية · حساب جاري. اسم البنك ونوع الحساب كفاية."
       cols={[
         { k: "name", l: "البنك", sensitive: true },
         { k: "country", l: "البلد", ph: "السعودية / مصر" },
@@ -234,6 +323,8 @@ function FilePage() {
       upd={u}
       list="insurance"
       addLabel="ضيف تأمين"
+      itemLabel="تأمين"
+      example="مثلًا: تأمين طبي من الشغل · الوثيقة في درج المكتب"
       cols={[
         { k: "company", l: "الشركة", sensitive: true },
         { k: "type", l: "النوع", ph: "طبي، حياة، عربية…", sensitive: true },
@@ -246,7 +337,9 @@ function FilePage() {
       plan={p}
       upd={u}
       list="owedToMe"
-      addLabel="ضيف"
+      addLabel="ضيف مبلغ"
+      itemLabel="مبلغ"
+      example="مثلًا: أحمد زميلي · 2000 ريال · رسايل واتساب"
       cols={[
         { k: "who", l: "مين" },
         { k: "amount", l: "المبلغ" },
@@ -259,7 +352,9 @@ function FilePage() {
       plan={p}
       upd={u}
       list="iOwe"
-      addLabel="ضيف"
+      addLabel="ضيف مبلغ"
+      itemLabel="مبلغ"
+      example="مثلًا: خالي · 5000 جنيه · تحويل بنكي"
       cols={[
         { k: "to", l: "لمين" },
         { k: "amount", l: "المبلغ" },
@@ -273,6 +368,8 @@ function FilePage() {
       upd={u}
       list="assets"
       addLabel="ضيف حاجة"
+      itemLabel="حاجة"
+      example="مثلًا: شقة · المنصورة · العقد مع أمي"
       cols={[
         { k: "item", l: "الحاجة", ph: "شقة، عربية، دهب، ورق…" },
         { k: "location", l: "مكانها" },
@@ -296,8 +393,11 @@ function FilePage() {
     const findings = sensitiveFindings(p);
     return (
       <Page narrow>
-        <div className="noprint mb-4 flex items-center justify-between gap-2">
-          <p className="font-semibold">كده أهلك هيشوفوا الملف</p>
+        <div className="noprint mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="eyebrow">معاينة</p>
+            <h1 className="text-2xl font-bold">كده أهلك هيشوفوا الملف</h1>
+          </div>
           <button className="btn-outline btn-sm" onClick={() => setPreview(false)}>
             ارجع للتعديل
           </button>
@@ -312,7 +412,7 @@ function FilePage() {
                   className="btn-outline btn-sm"
                   onClick={() => {
                     setPreview(false);
-                    setStep(SECTION_ORDER.indexOf(k));
+                    goTo(SECTION_ORDER.indexOf(k));
                   }}
                 >
                   كمّله
@@ -331,7 +431,7 @@ function FilePage() {
                   className="btn-outline btn-sm"
                   onClick={() => {
                     setPreview(false);
-                    setStep(SECTION_ORDER.indexOf(f.section));
+                    goTo(SECTION_ORDER.indexOf(f.section));
                   }}
                 >
                   عدّله
@@ -345,31 +445,43 @@ function FilePage() {
     );
   }
 
+  const doneCount = SECTION_ORDER.filter((k) => done[k]).length;
+  const stepKey = SECTION_ORDER[step];
+  const isLast = step === SECTIONS.length - 1;
+  const stateChip = (i: number) => {
+    const key = SECTION_ORDER[i];
+    if (key === undefined) return null;
+    if (done[key])
+      return (
+        <span className="chip-done px-2 text-xs" aria-label="مكتمل">
+          ✓
+        </span>
+      );
+    if (KEY_SECTIONS.includes(key)) return <span className="chip-todo px-2 text-xs">مهم</span>;
+    return null;
+  };
+  const saveProblem = v.status === "error" || v.status === "conflict";
+
   return (
     <Page>
-      <div className="noprint mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">ملفي</h1>
-          <p className="text-sm text-primary" role="status" aria-live="polite">
-            {v.status === "saving"
-              ? "بيتحفظ…"
-              : v.status === "error"
-                ? "ما اتحفظش على الجهاز — نزّل نسخة احتياطية دلوقتي عشان ما يضيعش حاجة"
-                : v.status === "conflict"
-                  ? "الملف اتفتح واتعدّل في شاشة تانية. نزّل نسخة احتياطية من اللي هنا، وبعدين افتح الملف من جديد."
-                  : "اتحفظ مشفّر على جهازك ✓"}
+      {/* title row: name, save status, the two page-level actions */}
+      <div className="noprint mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1.5">
+          <h1 className="text-[1.75rem] font-bold">ملفي</h1>
+          <p role="status" aria-live="polite">
+            {v.status === "saving" ? (
+              <span className="chip-neutral">بيتحفظ…</span>
+            ) : saveProblem ? (
+              <span className="chip bg-destructive/10 text-destructive">ما اتحفظش</span>
+            ) : (
+              <span className="chip-done">اتحفظ مشفّر على جهازك ✓</span>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button className="btn-outline btn-sm" onClick={() => setPreview(true)}>
             شوفه زي أهلك
           </button>
-          <button className="btn-outline btn-sm" onClick={backup}>
-            نزّل نسخة احتياطية مشفّرة
-          </button>
-          <Link to="/handover" className="btn-primary btn-sm">
-            سلّم أهلك
-          </Link>
           <button
             className="btn-ghost btn-sm"
             onClick={async () => {
@@ -381,8 +493,17 @@ function FilePage() {
           </button>
         </div>
       </div>
+
+      {saveProblem && (
+        <p className="warn noprint mb-5 border-destructive bg-destructive/5" role="alert">
+          {v.status === "error"
+            ? "ما اتحفظش على الجهاز — نزّل نسخة احتياطية دلوقتي عشان ما يضيعش حاجة."
+            : "الملف اتفتح واتعدّل في شاشة تانية. نزّل نسخة احتياطية من اللي هنا، وبعدين افتح الملف من جديد."}
+        </p>
+      )}
+
       {lockProblem && (
-        <div className="warn noprint mb-5 space-y-2" role="alert">
+        <div className="warn noprint mb-5 space-y-3" role="alert">
           <p className="font-semibold">
             فيه تعديلات ما اتحفظتش على الجهاز ده، فما قفلناش الملف عشان ما تضيعش.
           </p>
@@ -415,54 +536,106 @@ function FilePage() {
           </button>
         </div>
       )}
-      <div className="mb-5">
-        <div className="flex justify-between text-sm">
-          <span>اكتمال الملف</span>
-          <span>{pct}%</span>
+
+      {/* progress + the next big step */}
+      <div className="noprint mb-5 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border border-border bg-card px-5 py-4">
+        <div className="min-w-[12rem] flex-1">
+          <div className="flex justify-between gap-2 text-sm">
+            <span className="font-semibold">اكتمال الملف</span>
+            <span className="text-muted-foreground tabular-nums">
+              {doneCount.toLocaleString("ar-EG")} من {SECTIONS.length.toLocaleString("ar-EG")} أقسام
+              · {pct}%
+            </span>
+          </div>
+          <div
+            className="mt-2 h-2 overflow-hidden rounded-full bg-muted"
+            role="progressbar"
+            aria-label="اكتمال الملف"
+            aria-valuenow={pct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div
+              className="h-full rounded-full bg-gold transition-all"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
         </div>
-        <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
-          <div className="h-full bg-gold transition-all" style={{ width: `${pct}%` }} />
-        </div>
+        <Link to="/handover" className="btn-outline btn-sm">
+          سلّم أهلك
+        </Link>
       </div>
-      <div className="grid gap-5 md:grid-cols-[220px_1fr]">
-        <nav className="flex gap-2 overflow-x-auto pb-1 md:flex-col md:overflow-visible">
-          {SECTIONS.map((s, i) => {
-            const key = SECTION_ORDER[i];
-            return (
-              <button
-                key={s}
-                onClick={() => setStep(i)}
-                className={`shrink-0 rounded-lg px-3 py-2 text-right text-sm ${i === step ? "bg-primary text-primary-foreground" : "bg-card hover:bg-secondary"}`}
-              >
-                {i + 1}. {s}
-                {key !== undefined && done[key] && (
-                  <span className="ms-1" role="img" aria-label="مكتمل">
-                    ✓
+
+      <div className="grid gap-5 md:grid-cols-[230px_1fr]">
+        {/* sections: a full list on desktop; a compact picker that expands on phones */}
+        <nav aria-label="أقسام الملف" className="noprint">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-card px-4 py-3 text-start md:hidden"
+            aria-expanded={navOpen}
+            aria-controls="file-sections"
+            onClick={() => setNavOpen((o) => !o)}
+          >
+            <span className="min-w-0">
+              <span className="block text-xs text-muted-foreground">
+                القسم {(step + 1).toLocaleString("ar-EG")} من{" "}
+                {SECTIONS.length.toLocaleString("ar-EG")}
+              </span>
+              <span className="block truncate font-semibold">{SECTIONS[step]}</span>
+            </span>
+            <span className="shrink-0 text-sm font-semibold text-primary">
+              {navOpen ? "اقفل القائمة" : "كل الأقسام"}
+            </span>
+          </button>
+          <ol
+            id="file-sections"
+            className={`${navOpen ? "grid" : "hidden"} mt-2 gap-1 rounded-xl border border-border bg-card p-1.5 md:mt-0 md:grid md:border-0 md:bg-transparent md:p-0`}
+          >
+            {SECTIONS.map((s, i) => (
+              <li key={s}>
+                <button
+                  type="button"
+                  onClick={() => goTo(i)}
+                  aria-current={i === step ? "step" : undefined}
+                  className={`flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-start text-[0.9375rem] ${i === step ? "bg-primary font-semibold text-primary-foreground" : "hover:bg-secondary"}`}
+                >
+                  <span className="min-w-0">
+                    <span className={`tabular-nums ${i === step ? "" : "text-muted-foreground"}`}>
+                      {(i + 1).toLocaleString("ar-EG")}.
+                    </span>{" "}
+                    {s}
                   </span>
-                )}
-                {key !== undefined && !done[key] && KEY_SECTIONS.includes(key) && (
-                  <span className="ms-1 text-gold" title="مهم لأهلك">
-                    •
-                  </span>
-                )}
-              </button>
-            );
-          })}
+                  {i === step ? null : stateChip(i)}
+                </button>
+              </li>
+            ))}
+          </ol>
         </nav>
-        <section className="panel">
-          <h2 className="mb-4 text-xl font-bold text-primary">{SECTIONS[step]}</h2>
+
+        <section ref={sectionRef} className="panel scroll-mt-24" aria-labelledby="section-title">
+          <div className="mb-5 flex flex-wrap items-center gap-2">
+            <h2 id="section-title" className="text-xl font-bold text-primary">
+              {SECTIONS[step]}
+            </h2>
+            {stepKey !== undefined && done[stepKey] && <span className="chip-done">✓ مكتمل</span>}
+            {stepKey !== undefined && !done[stepKey] && KEY_SECTIONS.includes(stepKey) && (
+              <span className="chip-todo">مهم لأهلك</span>
+            )}
+          </div>
           {body[step]}
-          <div className="mt-6 flex justify-between">
+          {/* stays at the bottom of the screen on phones while the section is in view */}
+          <div className="sticky bottom-0 -mx-5 mt-6 -mb-5 flex items-center justify-between gap-3 rounded-b-2xl border-t border-border bg-card/95 px-5 py-3 backdrop-blur sm:-mx-6 sm:-mb-6 sm:px-6 md:static md:mx-0 md:mb-0 md:rounded-none md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
             <button
+              type="button"
               className="btn-ghost btn-sm"
               disabled={step === 0}
-              onClick={() => setStep(step - 1)}
+              onClick={() => goTo(step - 1)}
             >
               السابق
             </button>
-            {step < SECTIONS.length - 1 ? (
-              <button className="btn-primary btn-sm" onClick={() => setStep(step + 1)}>
-                التالي
+            {!isLast ? (
+              <button type="button" className="btn-primary btn-sm" onClick={() => goTo(step + 1)}>
+                التالي<span className="hidden sm:inline">: {SECTIONS[step + 1]}</span>
               </button>
             ) : (
               <Link to="/handover" className="btn-primary btn-sm">
@@ -472,21 +645,43 @@ function FilePage() {
           </div>
         </section>
       </div>
-      <p className="warn mt-6">
-        بيانات المتصفح ممكن تتمسح. النسخة الاحتياطية المشفّرة هي نسختك الحقيقية — نزّلها بعد كل
-        تعديل مهم.
-      </p>
-      <div className="mt-6">
+
+      {/* the owner's real copy is the encrypted backup: one clear prompt, aware of new edits */}
+      <section
+        className="noprint mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gold/40 bg-gold-soft px-5 py-4"
+        aria-label="النسخة الاحتياطية"
+      >
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <p className="font-semibold">
+            {backedUp === p
+              ? "✓ نزّلت نسخة احتياطية بعد آخر تعديل"
+              : backedUp
+                ? "فيه تعديلات من بعد آخر نسخة نزّلتها"
+                : "النسخة الاحتياطية هي نسختك الحقيقية"}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            بيانات المتصفح ممكن تتمسح. نزّل نسخة بعد كل تعديل مهم واحفظها في مكان آمن.
+          </p>
+        </div>
+        <button className="btn-outline btn-sm" onClick={() => void backup()}>
+          نزّل نسخة احتياطية مشفّرة
+        </button>
+      </section>
+
+      <div className="noprint mt-10 border-t border-border pt-6">
         {!confirmDel ? (
-          <button className="btn-danger btn-sm" onClick={() => setConfirmDel(true)}>
+          <button
+            className="btn-ghost btn-sm text-destructive hover:bg-destructive/5"
+            onClick={() => setConfirmDel(true)}
+          >
             امسح الملف من الجهاز
           </button>
         ) : (
-          <div className="panel border-destructive">
+          <div className="panel border-destructive" role="alert">
             <p className="font-semibold">
               متأكد؟ الملف هيتمسح من الجهاز ده نهائيًا. لو ما عندكش نسخة احتياطية مش هتقدر ترجّعه.
             </p>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               <button
                 className="btn-danger btn-sm"
                 onClick={async () => {
@@ -497,7 +692,7 @@ function FilePage() {
                 أيوه، امسح
               </button>
               <button className="btn-ghost btn-sm" onClick={() => setConfirmDel(false)}>
-                لأ
+                لأ، سيبه
               </button>
             </div>
           </div>
