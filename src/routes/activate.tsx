@@ -131,18 +131,14 @@ function Activate() {
           <h2 id="buy-title" className="text-xl font-bold">
             اختار الباقة
           </h2>
-          <div
-            className="inline-flex rounded-lg border border-border bg-card p-1"
-            role="group"
-            aria-label="انت فين؟"
-          >
+          <div className="inline-flex rounded-full bg-card p-1" role="group" aria-label="انت فين؟">
             {(["EG", "INTL"] as const).map((m) => (
               <button
                 key={m}
                 type="button"
                 aria-pressed={market === m}
                 onClick={() => setMarket(m)}
-                className={`min-h-10 rounded-md px-4 text-sm font-semibold ${market === m ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-secondary"}`}
+                className={`min-h-10 rounded-full px-4 text-sm font-semibold transition-colors ${market === m ? "bg-ink text-ink-foreground" : "text-foreground hover:bg-secondary"}`}
               >
                 {m === "EG" ? "في مصر" : "برّه مصر"}
               </button>
@@ -153,14 +149,14 @@ function Activate() {
           {(["single", "family"] as const).map((p) => (
             <div
               key={p}
-              className={`flex flex-col gap-3 rounded-2xl border bg-card p-5 ${p === "family" ? "border-gold" : "border-border"}`}
+              className={`flex flex-col gap-3 rounded-[28px] p-5 ${p === "family" ? "bg-gold-soft" : "bg-card"}`}
             >
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-lg font-bold">{PLAN_NAME[p]}</h3>
-                {p === "family" && <span className="chip-todo">3 أكواد</span>}
+                {p === "family" && <span className="chip bg-card text-gold-ink">3 أكواد</span>}
               </div>
               <p>
-                <span className="text-3xl font-bold text-primary">{priceLabel(p, market)}</span>{" "}
+                <span className="text-3xl font-bold">{priceLabel(p, market)}</span>{" "}
                 <span className="text-sm text-muted-foreground">مرة واحدة</span>
               </p>
               <p className="text-sm text-muted-foreground">

@@ -93,7 +93,7 @@ function NotActivated() {
         {(["single", "family"] as const).map((plan) => (
           <div
             key={plan}
-            className={`rounded-2xl border bg-card p-4 ${plan === "family" ? "border-gold" : "border-border"}`}
+            className={`rounded-[22px] p-4 ${plan === "family" ? "bg-gold-soft" : "bg-muted"}`}
           >
             <h2 className="font-bold">{PLAN_NAME[plan]}</h2>
             <p className="mt-1 text-xl font-bold text-primary">{priceLabel(plan, "EG")}</p>
@@ -144,6 +144,7 @@ function Flow({ act }: { act: Activation }) {
   const holdersDone = !!existing || (!!holders[0]?.trim() && (!split || !!holders[1]?.trim()));
   const [editHolders, setEditHolders] = useState(!holdersDone);
   const [downloaded, setDownloaded] = useState(false);
+  const [exportErr, setExportErr] = useState("");
 
   async function prepare() {
     setBusy(true);
@@ -192,9 +193,16 @@ function Flow({ act }: { act: Activation }) {
   async function exportFamily() {
     const plan = v.session!.plan;
     if (!plan.handover?.codeWrap) return;
-    const env = await sealFamilyFile(plan);
-    downloadBlob(await buildFamilyHtml(env), "ملف-عهدة-للأهل.html", "text/html");
-    setDownloaded(true);
+    setExportErr("");
+    try {
+      const env = await sealFamilyFile(plan);
+      downloadBlob(await buildFamilyHtml(env), "ملف-عهدة-للأهل.html", "text/html");
+      setDownloaded(true);
+    } catch (x) {
+      // never fail silently: the owner must know the family file was not produced
+      const m = x instanceof Error ? x.message : "";
+      setExportErr(/[\u0600-\u06FF]/.test(m) ? m : "ما قدرناش نجهّز ملف الأهل. جرّب تاني.");
+    }
   }
 
   async function makeDemo() {
@@ -318,7 +326,7 @@ function Flow({ act }: { act: Activation }) {
                 {[false, true].map((sp) => (
                   <label
                     key={String(sp)}
-                    className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border px-3.5 py-2 ${split === sp ? "border-primary bg-secondary" : "border-border bg-card"}`}
+                    className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl px-4 py-2.5 ${split === sp ? "bg-secondary" : "bg-muted"}`}
                   >
                     <input
                       type="radio"
@@ -435,7 +443,7 @@ function Flow({ act }: { act: Activation }) {
                   اطبع الكروت
                 </button>
                 {!activated && (
-                  <div className="space-y-3 rounded-xl border border-border p-4">
+                  <div className="subpanel space-y-3">
                     <p className="font-semibold">بعد الطباعة: أكّد إن الكارت صح</p>
                     <label className="flex items-start gap-2">
                       <input
@@ -612,6 +620,11 @@ function Flow({ act }: { act: Activation }) {
               </button>
               {downloadBlocked && <p className="why">{downloadBlocked}</p>}
             </div>
+            {exportErr && (
+              <p role="alert" className="err-text">
+                {exportErr}
+              </p>
+            )}
           </div>
         </StepItem>
 

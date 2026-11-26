@@ -66,7 +66,7 @@ export function QuickAdd({
         aria-controls="quick-add"
         aria-label={open ? "اقفل" : "ضيف حاجة جديدة"}
         onClick={() => (open ? close() : setOpen(true))}
-        className={`absolute end-0 bottom-0 z-[60] grid size-[4.25rem] place-items-center rounded-full border-[5px] border-background shadow-float transition-[background-color,transform] duration-300 ease-spring active:scale-95 ${open ? "bg-gold text-accent-foreground" : "bg-ink text-ink-foreground"}`}
+        className={`absolute end-0 bottom-0 grid size-[4.25rem] place-items-center rounded-full border-[5px] border-background shadow-float transition-[background-color,transform] duration-300 ease-spring active:scale-95 ${open ? "bg-gold text-accent-foreground" : "z-[60] bg-ink text-ink-foreground"}`}
       >
         <Icon
           name="plus"
@@ -91,9 +91,15 @@ export function QuickAdd({
           role="dialog"
           aria-modal="true"
           aria-label="ضيف حاجة جديدة"
-          className={`no-scrollbar absolute inset-x-0 bottom-0 mx-auto max-h-[86dvh] max-w-md overflow-y-auto rounded-t-[32px] bg-background px-4 pt-3 pb-28 transition-transform duration-500 ease-spring ${open ? "translate-y-0" : "translate-y-[105%]"}`}
+          className={`no-scrollbar absolute inset-x-0 bottom-0 mx-auto max-h-[86dvh] max-w-md overflow-y-auto rounded-t-[32px] bg-background px-4 pt-3 pb-8 transition-transform duration-500 ease-spring ${open ? "translate-y-0" : "translate-y-[105%]"}`}
         >
-          <span className="mx-auto mb-3 block h-1.5 w-11 rounded-full bg-border" />
+          <div className="mb-2 grid grid-cols-[2.75rem_1fr_2.75rem] items-center">
+            <span />
+            <span className="mx-auto block h-1.5 w-11 rounded-full bg-border" />
+            <button type="button" className="btn-icon" aria-label="اقفل" onClick={close}>
+              <Icon name="plus" className="size-5 rotate-45" />
+            </button>
+          </div>
           {!type ? (
             <>
               <h2 className="text-xl font-bold">ضيف إيه؟</h2>
@@ -122,7 +128,7 @@ export function QuickAdd({
                         </span>
                       </span>
                       <span className="num text-2xl text-muted-foreground">
-                        {plan[t.list].length}
+                        {plan[t.list].length || ""}
                       </span>
                     </button>
                   </li>

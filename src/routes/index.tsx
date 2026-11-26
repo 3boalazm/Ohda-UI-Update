@@ -43,29 +43,35 @@ const faq = [
 function Landing() {
   return (
     <>
-      <section className="bg-primary text-primary-foreground">
-        <div className="mx-auto max-w-5xl px-4 py-16 sm:py-24">
-          <p className="text-sm font-semibold text-gold-light">ملف لأهلك، مشفّر على جهازك</p>
-          <h1 className="mt-3 text-[2rem] leading-tight font-bold sm:text-5xl">
-            لو غبت فجأة… أهلك يعرفوا يبدأوا منين؟
-          </h1>
-          <p className="mt-5 max-w-2xl text-lg opacity-90">
-            عُهدة بتساعدك تكتب في 10 دقايق أهم الحاجات اللي أهلك محتاجين يعرفوها: الشغل، البنوك،
-            التأمين، الفلوس، الأوراق، ومين يكلموا الأول. وبتسلّمهولهم بكود مطبوع.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link to="/start" className="btn-gold">
-              ابدأ ملفك مجانًا
-            </Link>
-            <Link
-              to="/quiz"
-              className="btn border border-primary-foreground/40 text-primary-foreground hover:bg-primary-foreground/10"
-            >
-              اختبر نفسك في دقيقة
-            </Link>
+      <div className="mx-auto max-w-5xl px-3 pt-3 sm:px-4">
+        <section className="color-screen rounded-[36px] px-6 py-12 sm:px-12 sm:py-20">
+          <span
+            aria-hidden="true"
+            className="absolute -end-20 -top-24 size-80 rounded-full border-[52px] border-white/[0.06]"
+          />
+          <div className="relative">
+            <p className="text-sm font-semibold text-gold-light">ملف لأهلك، مشفّر على جهازك</p>
+            <h1 className="mt-3 text-[2rem] leading-tight font-bold sm:text-5xl">
+              لو غبت فجأة… أهلك يعرفوا يبدأوا منين؟
+            </h1>
+            <p className="mt-5 max-w-2xl text-lg opacity-90">
+              عُهدة بتساعدك تكتب في 10 دقايق أهم الحاجات اللي أهلك محتاجين يعرفوها: الشغل، البنوك،
+              التأمين، الفلوس، الأوراق، ومين يكلموا الأول. وبتسلّمهولهم بكود مطبوع.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link to="/start" className="btn-gold">
+                ابدأ ملفك مجانًا
+              </Link>
+              <Link
+                to="/quiz"
+                className="btn bg-white/10 text-primary-foreground hover:bg-white/20"
+              >
+                اختبر نفسك في دقيقة
+              </Link>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
       <Page>
         <h2 className="text-2xl font-bold">إمتى أهلك هيحتاجوه؟</h2>
@@ -86,7 +92,7 @@ function Landing() {
             ["سلّمه لأهلك بكود مطبوع", "ملف بيفتح من غير الموقع، بالكارت بس."],
           ].map(([t, d], i) => (
             <li key={t} className="flex items-start gap-3">
-              <span className="grid size-10 shrink-0 place-items-center rounded-full border-2 border-gold font-bold text-gold-ink">
+              <span className="num grid size-11 shrink-0 place-items-center rounded-full bg-card text-2xl leading-none">
                 {i + 1}
               </span>
               <span>
@@ -151,7 +157,7 @@ function Landing() {
                 مرة واحدة. تسليم الأهل والكروت المطبوعة.
               </p>
             </div>
-            <div className="panel border-gold">
+            <div className="panel bg-gold-soft">
               <h3 className="font-bold">باقة العيلة</h3>
               <p className="mt-1 text-2xl font-bold text-primary">{priceLabel("family", "EG")}</p>
               <p className="text-sm font-semibold">{priceLabel("family", "INTL")} من برّه مصر</p>

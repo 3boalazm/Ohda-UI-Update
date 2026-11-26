@@ -799,7 +799,7 @@ function FilePage() {
               </span>
               <span className="flex items-end justify-between gap-2">
                 <span className="text-lg leading-snug font-bold">{SECTION_LABELS[k]}</span>
-                {count !== null && <span className="num text-4xl">{count}</span>}
+                {!!count && <span className="num text-4xl">{count}</span>}
               </span>
               <span className="sr-only">{done[k] ? "مكتمل" : "لسه ناقص"}</span>
             </button>

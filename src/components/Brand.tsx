@@ -36,7 +36,7 @@ export function LogoMark({ size = 40 }: { size?: number }) {
 
 export function Header() {
   return (
-    <header className="noprint sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
+    <header className="noprint sticky top-0 z-20 bg-background/90 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
         <Link
           to="/"
@@ -75,7 +75,7 @@ export function Header() {
 
 export function Footer() {
   return (
-    <footer className="noprint mt-16 border-t border-border bg-card">
+    <footer className="noprint mt-16 rounded-t-[36px] bg-card">
       <div className="mx-auto max-w-5xl space-y-3 px-4 py-8 text-sm text-muted-foreground">
         <p>
           عُهدة — منتج من Code &amp; Canvas، شركة مسجّلة في مصر ·{" "}

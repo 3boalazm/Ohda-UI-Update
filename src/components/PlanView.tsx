@@ -71,7 +71,7 @@ function KV({ obj, fields }: { obj: Record<string, string>; fields: Col[] }) {
 }
 const S = (t: string, node: React.ReactNode) => (node ? <Section title={t}>{node}</Section> : null);
 const Steps = ({ t }: { t: string }) => (
-  <div className="whitespace-pre-wrap rounded-lg border border-gold/40 bg-gold-soft p-3">{t}</div>
+  <div className="whitespace-pre-wrap rounded-2xl bg-gold-soft p-4">{t}</div>
 );
 
 export const DISCLAIMER =
