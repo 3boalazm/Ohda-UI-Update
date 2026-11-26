@@ -1,17 +1,28 @@
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
+/* Self-hosted Arabic UI font (OFL). Served from our own origin (CSP font-src 'self'); the
+   unicode-range subsets mean a browser downloads only the scripts a page actually uses. */
+@import "@fontsource/ibm-plex-sans-arabic/400.css";
+@import "@fontsource/ibm-plex-sans-arabic/600.css";
+@import "@fontsource/ibm-plex-sans-arabic/700.css";
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Ohda design tokens ("sealed family dossier"): deep green = trust/primary action, gold = the seal
+ * (what is missing or important), warm paper + ink for reading. One filled primary button per
+ * screen, status shown as chips, at most one callout per screen.
+ */
 @theme inline {
-  --font-sans: "Segoe UI", Tahoma, "Noto Naskh Arabic", "Geeza Pro", Arial, sans-serif;
+  --font-sans:
+    "IBM Plex Sans Arabic", "Segoe UI", Tahoma, "Noto Naskh Arabic", "Geeza Pro", Arial, sans-serif;
   --font-mono: Consolas, "Courier New", monospace;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-2xl: calc(var(--radius) + 6px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -19,6 +30,7 @@
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
+  --color-primary-strong: var(--primary-strong);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -32,34 +44,39 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-gold: var(--gold);
+  --color-gold-ink: var(--gold-ink);
+  --color-gold-light: var(--gold-light);
   --color-gold-soft: var(--gold-soft);
   --color-mint: var(--mint);
 }
 
 :root {
-  --radius: 0.85rem;
-  --background: oklch(0.967 0.008 85); /* cream #f6f4ef */
-  --foreground: oklch(0.25 0.06 265); /* ink #14213d */
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.25 0.06 265);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.25 0.06 265);
-  --primary: oklch(0.42 0.075 172); /* deep green #0f5c4d */
-  --primary-foreground: oklch(0.967 0.008 85);
-  --secondary: oklch(0.94 0.02 172);
-  --secondary-foreground: oklch(0.42 0.075 172);
-  --muted: oklch(0.935 0.01 85);
-  --muted-foreground: oklch(0.5 0.03 260);
-  --accent: oklch(0.68 0.12 70); /* gold #c8913a */
-  --accent-foreground: oklch(0.25 0.06 265);
-  --gold: oklch(0.68 0.12 70);
-  --gold-soft: oklch(0.96 0.035 80);
-  --mint: oklch(0.95 0.02 172);
-  --destructive: oklch(0.5 0.17 25); /* #a4262c */
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.89 0.012 260);
-  --input: oklch(0.89 0.012 260);
-  --ring: oklch(0.42 0.075 172);
+  --radius: 0.625rem; /* 10px controls; cards use rounded-2xl (16px) */
+  --background: #f6f4ef; /* paper */
+  --foreground: #14213d; /* ink */
+  --card: #ffffff;
+  --card-foreground: #14213d;
+  --popover: #ffffff;
+  --popover-foreground: #14213d;
+  --primary: #0f5c4d; /* deep green */
+  --primary-strong: #0b4a3e; /* hover / pressed */
+  --primary-foreground: #ffffff;
+  --secondary: #e9f3ef; /* green tint: done, hover */
+  --secondary-foreground: #0f5c4d;
+  --muted: #efece5;
+  --muted-foreground: #5b6270; /* hints: 5.9:1 on paper */
+  --accent: #c8913a;
+  --accent-foreground: #14213d;
+  --gold: #c8913a; /* seal: fills, icons, progress */
+  --gold-ink: #8a5e17; /* gold text on light: 5.2:1 */
+  --gold-light: #f0d9a8; /* gold text on green: 6.4:1 */
+  --gold-soft: #fbf3e4; /* callout background */
+  --mint: #eef6f3;
+  --destructive: #a4262c;
+  --destructive-foreground: #ffffff;
+  --border: #e4e1d9; /* warm line */
+  --input: #d9d5cb;
+  --ring: #c8913a;
 }
 
 @layer base {
@@ -68,64 +85,131 @@
   }
   html {
     font-family: var(--font-sans);
+    -webkit-text-size-adjust: 100%;
   }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    line-height: 1.75;
+    font-size: 1.0625rem; /* 17px: Arabic needs a little more size than Latin */
+    line-height: 1.8;
   }
   h1,
   h2,
   h3 {
-    line-height: 1.35;
+    line-height: 1.4;
+    text-wrap: balance;
+  }
+  /* One visible focus style for every interactive element (keyboard users). */
+  :where(a, button, summary, [role="button"], input, select, textarea, [tabindex]):focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+  }
+  :where(input[type="checkbox"], input[type="radio"]) {
+    accent-color: var(--primary);
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+  }
+  summary {
+    cursor: pointer;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
+/* ---------- buttons: 48px tall (40px small); one filled primary per screen ---------- */
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-base font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 text-base font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45 aria-disabled:cursor-not-allowed aria-disabled:opacity-45;
 }
 @utility btn-primary {
-  @apply btn bg-primary text-primary-foreground hover:bg-primary/90;
+  @apply btn bg-primary text-primary-foreground hover:bg-primary-strong;
 }
 @utility btn-gold {
   @apply btn bg-gold text-foreground hover:bg-gold/90;
 }
 @utility btn-outline {
-  @apply btn border border-primary bg-card text-primary hover:bg-secondary;
+  @apply btn border-[1.5px] border-primary bg-card text-primary hover:bg-secondary;
 }
 @utility btn-ghost {
   @apply btn text-primary hover:bg-secondary;
 }
 @utility btn-danger {
-  @apply btn border border-destructive bg-card text-destructive hover:bg-destructive/5;
+  @apply btn border-[1.5px] border-destructive bg-card text-destructive hover:bg-destructive/5;
 }
 @utility btn-sm {
-  @apply px-3 py-2 text-sm;
+  @apply min-h-10 px-3.5 text-sm;
 }
+/* a button that only shows an icon/short glyph (menus, close) */
+@utility btn-icon {
+  @apply btn min-h-10 min-w-10 border border-border bg-card px-0 text-foreground hover:bg-secondary;
+}
+
+/* ---------- surfaces ---------- */
 @utility panel {
-  @apply rounded-2xl border border-border bg-card p-5;
+  @apply rounded-2xl border border-border bg-card p-5 sm:p-6;
 }
+/* a quieter group inside a panel (list rows, sub-steps) */
+@utility subpanel {
+  @apply rounded-xl border border-border bg-background p-4;
+}
+
+/* ---------- forms ---------- */
 @utility field-label {
-  @apply mb-1.5 block text-sm font-semibold;
+  @apply mb-1.5 block text-[0.9375rem] font-semibold;
+}
+@utility field-hint {
+  @apply mt-1.5 block text-sm text-muted-foreground;
 }
 @utility field {
-  @apply w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20;
+  @apply min-h-12 w-full rounded-lg border-[1.5px] border-input bg-card px-3.5 py-2.5 text-base outline-none placeholder:text-muted-foreground/70 focus:border-primary focus:ring-[3px] focus:ring-primary/20;
 }
 @utility code-input {
   @apply field text-center font-mono tracking-wider;
   direction: ltr;
 }
+/* a long code shown to the user: wraps only between groups (see CodeText) */
+@utility code-text {
+  @apply flex flex-wrap justify-center gap-x-1.5 gap-y-1 font-mono text-lg font-bold tracking-wider;
+  direction: ltr;
+}
+
+/* ---------- messages: at most one callout per screen ---------- */
 @utility warn {
-  @apply rounded-lg border border-gold/50 bg-gold-soft px-3 py-2 text-sm;
+  @apply rounded-lg border-s-4 border-gold bg-gold-soft px-3.5 py-2.5 text-sm;
+}
+@utility notice {
+  @apply rounded-lg border-s-4 border-primary bg-mint px-4 py-3 text-[0.9375rem];
 }
 @utility err-text {
   @apply text-sm font-semibold text-destructive;
 }
-@utility notice {
-  @apply rounded-xl border border-primary/20 bg-mint p-4 text-sm;
-}
 @utility eyebrow {
-  @apply text-sm font-semibold text-gold;
+  @apply text-sm font-semibold text-gold-ink;
+}
+/* the reason a button is disabled, shown right next to it */
+@utility why {
+  @apply text-sm text-muted-foreground;
+}
+
+/* ---------- status chips ---------- */
+@utility chip {
+  @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[0.8125rem] leading-6 font-semibold whitespace-nowrap;
+}
+@utility chip-done {
+  @apply chip bg-secondary text-primary;
+}
+@utility chip-todo {
+  @apply chip bg-gold-soft text-gold-ink;
+}
+@utility chip-neutral {
+  @apply chip border border-border bg-card text-muted-foreground;
 }
 
 @media print {
