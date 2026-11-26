@@ -1,5 +1,6 @@
 import { priceLabel } from "@/lib/pricing";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { Art } from "@/components/Art";
 import { Page, meta } from "@/components/Brand";
 
 export const Route = createFileRoute("/")({
@@ -49,26 +50,33 @@ function Landing() {
             aria-hidden="true"
             className="absolute -end-20 -top-24 size-80 rounded-full border-[52px] border-white/[0.06]"
           />
-          <div className="relative">
-            <p className="text-sm font-semibold text-gold-light">ملف لأهلك، مشفّر على جهازك</p>
-            <h1 className="mt-3 text-[2rem] leading-tight font-bold sm:text-5xl">
-              لو غبت فجأة… أهلك يعرفوا يبدأوا منين؟
-            </h1>
-            <p className="mt-5 max-w-2xl text-lg opacity-90">
-              عُهدة بتساعدك تكتب في 10 دقايق أهم الحاجات اللي أهلك محتاجين يعرفوها: الشغل، البنوك،
-              التأمين، الفلوس، الأوراق، ومين يكلموا الأول. وبتسلّمهولهم بكود مطبوع.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link to="/start" className="btn-gold">
-                ابدأ ملفك مجانًا
-              </Link>
-              <Link
-                to="/quiz"
-                className="btn bg-white/10 text-primary-foreground hover:bg-white/20"
-              >
-                اختبر نفسك في دقيقة
-              </Link>
+          <div className="relative grid items-center gap-10 md:grid-cols-[1.15fr_1fr]">
+            <div>
+              <p className="text-sm font-semibold text-gold-light">ملف لأهلك، مشفّر على جهازك</p>
+              <h1 className="mt-3 text-[2rem] leading-tight font-bold sm:text-5xl">
+                لو غبت فجأة… أهلك يعرفوا يبدأوا منين؟
+              </h1>
+              <p className="mt-5 max-w-2xl text-lg opacity-90">
+                عُهدة بتساعدك تكتب في 10 دقايق أهم الحاجات اللي أهلك محتاجين يعرفوها: الشغل، البنوك،
+                التأمين، الفلوس، الأوراق، ومين يكلموا الأول. وبتسلّمهولهم بكود مطبوع.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link to="/start" className="btn-gold">
+                  ابدأ ملفك مجانًا
+                </Link>
+                <Link
+                  to="/quiz"
+                  className="btn bg-white/10 text-primary-foreground hover:bg-white/20"
+                >
+                  اختبر نفسك في دقيقة
+                </Link>
+              </div>
             </div>
+            <Art
+              name="hero"
+              eager
+              className="aspect-[4/3] w-full rounded-[28px] object-left md:aspect-square md:object-[15%_center]"
+            />
           </div>
         </section>
       </div>
@@ -103,40 +111,43 @@ function Landing() {
           ))}
         </ol>
 
-        <section className="mt-14 rounded-2xl bg-mint p-6 sm:p-8">
-          <h2 className="text-2xl font-bold text-primary">بياناتك بتفضل معاك</h2>
-          <ul className="mt-4 space-y-2">
-            {[
-              "التشفير بيحصل على جهازك، قبل ما أي حاجة تتحفظ.",
-              "إحنا ما بنشوفش ولا بنخزّن ملفك. مفيش سيرفر عليه بياناتك.",
-              "مفيش حساب ولا إيميل ولا رقم موبايل مطلوب.",
-            ].map((t) => (
-              <li key={t} className="flex items-start gap-2.5">
-                <span aria-hidden="true" className="font-bold text-primary">
-                  ✓
-                </span>
-                <span>{t}</span>
-              </li>
-            ))}
-          </ul>
-          <h3 className="mt-6 font-bold">حاجات ما بنطلبهاش ولا المفروض تكتبها</h3>
-          <ul className="mt-2 space-y-1.5 text-muted-foreground">
-            {[
-              "كلمات السر ورموز التحقق (OTP).",
-              "أرقام الحسابات أو الكروت كاملة — اسم البنك ونوع الحساب كفاية.",
-              "عُهدة مش وصية قانونية ولا شرعية.",
-            ].map((t) => (
-              <li key={t} className="flex items-start gap-2.5">
-                <span aria-hidden="true" className="font-bold text-destructive">
-                  ✕
-                </span>
-                <span>{t}</span>
-              </li>
-            ))}
-          </ul>
-          <Link to="/security" className="btn-ghost mt-4 px-0">
-            إزاي بنحمي ملفك ←
-          </Link>
+        <section className="mt-14 grid items-center gap-8 rounded-[28px] bg-mint p-6 sm:p-8 md:grid-cols-[1.2fr_1fr]">
+          <div>
+            <h2 className="text-2xl font-bold text-primary">بياناتك بتفضل معاك</h2>
+            <ul className="mt-4 space-y-2">
+              {[
+                "التشفير بيحصل على جهازك، قبل ما أي حاجة تتحفظ.",
+                "إحنا ما بنشوفش ولا بنخزّن ملفك. مفيش سيرفر عليه بياناتك.",
+                "مفيش حساب ولا إيميل ولا رقم موبايل مطلوب.",
+              ].map((t) => (
+                <li key={t} className="flex items-start gap-2.5">
+                  <span aria-hidden="true" className="font-bold text-primary">
+                    ✓
+                  </span>
+                  <span>{t}</span>
+                </li>
+              ))}
+            </ul>
+            <h3 className="mt-6 font-bold">حاجات ما بنطلبهاش ولا المفروض تكتبها</h3>
+            <ul className="mt-2 space-y-1.5 text-muted-foreground">
+              {[
+                "كلمات السر ورموز التحقق (OTP).",
+                "أرقام الحسابات أو الكروت كاملة — اسم البنك ونوع الحساب كفاية.",
+                "عُهدة مش وصية قانونية ولا شرعية.",
+              ].map((t) => (
+                <li key={t} className="flex items-start gap-2.5">
+                  <span aria-hidden="true" className="font-bold text-destructive">
+                    ✕
+                  </span>
+                  <span>{t}</span>
+                </li>
+              ))}
+            </ul>
+            <Link to="/security" className="btn-ghost mt-4 px-0">
+              إزاي بنحمي ملفك ←
+            </Link>
+          </div>
+          <Art name="privacy" className="aspect-[4/3] w-full rounded-[24px] md:aspect-square" />
         </section>
 
         <section className="mt-14">

@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { Art } from "@/components/Art";
 import { Page, meta } from "@/components/Brand";
 import { redeemActivation } from "@/lib/activation.functions";
 import { DEMO, DEMO_CODES, demoRedeem, writeDemoActivation } from "@/lib/demo";
@@ -103,6 +104,7 @@ function Activate() {
 
   return (
     <Page narrow>
+      <Art name="activate" eager className="mb-5 h-32 w-full rounded-[28px] sm:h-44" />
       <h1 className="text-2xl font-bold">التفعيل</h1>
       {act && (
         <div className="notice mt-4">

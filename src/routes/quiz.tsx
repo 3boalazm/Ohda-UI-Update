@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { Art } from "@/components/Art";
 import { Page, meta } from "@/components/Brand";
 import { quizGaps, writeQuizGaps } from "@/lib/home";
 
@@ -55,7 +56,10 @@ function Quiz() {
 
   return (
     <Page narrow>
-      <h1 className="text-2xl font-bold">لو غبت فجأة… أهلك يعرفوا يبدأوا منين؟</h1>
+      <div className="flex items-center gap-4 sm:gap-6">
+        <h1 className="min-w-0 flex-1 text-2xl font-bold">لو غبت فجأة… أهلك يعرفوا يبدأوا منين؟</h1>
+        <Art name="quiz" eager className="size-20 shrink-0 rounded-[24px] sm:size-32" />
+      </div>
       {!done ? (
         <div className="mt-6">
           <div className="h-2 overflow-hidden rounded-full bg-muted">

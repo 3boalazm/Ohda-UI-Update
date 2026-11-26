@@ -2,6 +2,7 @@ import { PLAN_NAME, priceLabel } from "@/lib/pricing";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Page, meta, LogoMark } from "@/components/Brand";
+import { Art } from "@/components/Art";
 import { CodeText, StepItem, type StepState } from "@/components/Kit";
 import { NeedUnlock } from "@/components/Fields";
 import { makeCodeWrap, newDataKey, normalizeCode, sealContent } from "@/lib/ohdaCrypto";
@@ -66,6 +67,7 @@ function Handover() {
 function NotActivated() {
   return (
     <div className="panel space-y-5">
+      <Art name="handover" className="h-36 w-full rounded-[22px] sm:h-48" />
       <div>
         <p className="eyebrow">خطوة أخيرة قبل التسليم</p>
         <h1 className="mt-1 text-2xl font-bold">سلّم أهلك</h1>
@@ -288,6 +290,7 @@ function Flow({ act }: { act: Activation }) {
 
   return (
     <Page narrow>
+      <Art name="handover" className="mb-5 h-32 w-full rounded-[28px] sm:h-44" />
       <div className="mb-6 space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-[1.75rem] font-bold">سلّم أهلك</h1>

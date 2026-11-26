@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Page, meta } from "@/components/Brand";
+import { Art } from "@/components/Art";
 import { FilePicker } from "@/components/Kit";
 import { PlanView } from "@/components/PlanView";
 import { unlockWithCodes, validateEnvelope, type OhdaEnvelope } from "@/lib/ohdaCrypto";
@@ -71,13 +72,18 @@ function OpenPage() {
 
   return (
     <Page narrow>
-      <h1 className="text-[1.75rem] font-bold">افتح ملف أهلك</h1>
-      <p className="mt-2 text-muted-foreground">
-        الفتح بيحصل على جهازك بس. الملف والكود مش بيتبعتوا لأي مكان، ولا لينا.
-      </p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        هي خطوتين بس: ترفع الملف، وبعدين تكتب الكود.
-      </p>
+      <div className="flex items-center gap-4 sm:gap-6">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-[1.75rem] font-bold">افتح ملف أهلك</h1>
+          <p className="mt-2 text-muted-foreground">
+            الفتح بيحصل على جهازك بس. الملف والكود مش بيتبعتوا لأي مكان، ولا لينا.
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            هي خطوتين بس: ترفع الملف، وبعدين تكتب الكود.
+          </p>
+        </div>
+        <Art name="open" eager className="size-24 shrink-0 rounded-[28px] sm:size-44" />
+      </div>
 
       <div className="panel mt-5 space-y-6">
         {/* Step 1: upload */}
