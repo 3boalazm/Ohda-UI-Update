@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DIGITS_WARNING, SECRET_WARNING, emptyPlan } from "@/lib/plan";
-import { missingKeySections, sectionDone, sensitiveFindings } from "@/lib/review";
+import { findingPlaces, missingKeySections, sectionDone, sensitiveFindings } from "@/lib/review";
 
 const contact = { name: "أحمد", relation: "أخ", phone: "01001234567", note: "" };
 
@@ -56,7 +56,7 @@ describe("sensitiveFindings", () => {
       insurance: [{ company: "تكافل", type: "صحي", policyRef: "", note: "ما تدّيش الـ OTP لحد" }],
     };
     expect(sensitiveFindings(p)).toEqual([
-      { section: "insurance", label: "التأمين", warnings: [SECRET_WARNING] },
+      { section: "insurance", label: "التأمين", warnings: [SECRET_WARNING], rows: [1] },
     ]);
   });
 
@@ -67,5 +67,56 @@ describe("sensitiveFindings", () => {
       contacts: [{ ...contact, phone: "0551234567" }],
     };
     expect(sensitiveFindings(p)).toEqual([]);
+  });
+});
+
+describe("sensitiveFindings covers the whole family file", () => {
+  it("flags a password written in the letter, the first steps, the wishes or any notes", () => {
+    const p = {
+      ...emptyPlan(),
+      letter: "كلمة السر بتاعة الجهاز هي ...",
+      firstSteps: "ادخلوا بالباسورد اللي في الورقة",
+      wishes: "OTP",
+      owner: { ...emptyPlan().owner, notes: "الرقم السري للدولاب" },
+      work: { ...emptyPlan().work, notes: "رمز التحقق بتاع الشركة" },
+    };
+    const f = sensitiveFindings(p);
+    expect(f.map((x) => x.section)).toEqual(["owner", "firstSteps", "work", "wishes", "letter"]);
+    for (const x of f) expect(x.warnings).toEqual([SECRET_WARNING]);
+  });
+
+  it("names the rows that caused it in list sections", () => {
+    const p = {
+      ...emptyPlan(),
+      banks: [
+        { name: "بنك أ", country: "", type: "", note: "" },
+        { name: "بنك ب", country: "", type: "", note: "الباسورد 1" },
+        { name: "بنك ج", country: "", type: "", note: "رمز التحقق" },
+      ],
+      contacts: [{ ...contact, note: "عنده الباسورد" }],
+    };
+    const f = sensitiveFindings(p);
+    expect(f.find((x) => x.section === "banks")?.rows).toEqual([2, 3]);
+    expect(f.find((x) => x.section === "contacts")?.rows).toEqual([1]);
+    expect(findingPlaces(f.find((x) => x.section === "banks")!)).toBe("(بنك 2، بنك 3)");
+    expect(findingPlaces({ section: "letter", label: "رسالة", warnings: [] })).toBe("");
+  });
+
+  it("long numbers only matter in the financial sections", () => {
+    const num = "1234567890123456";
+    const quiet = {
+      ...emptyPlan(),
+      letter: `اتصلوا بيا على ${num}`,
+      firstSteps: `كلموا ${num} الأول`,
+      contacts: [{ ...contact, phone: num, note: num }],
+      owedToMe: [{ who: "x", amount: num, currency: "", proof: num }],
+      assets: [{ item: num, location: num, holder: num }],
+    };
+    expect(sensitiveFindings(quiet)).toEqual([]);
+    const loud = {
+      ...emptyPlan(),
+      insurance: [{ company: num, type: "", policyRef: "", note: "" }],
+    };
+    expect(sensitiveFindings(loud).map((x) => x.section)).toEqual(["insurance"]);
   });
 });

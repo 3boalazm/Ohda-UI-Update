@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Page, meta } from "@/components/Brand";
 import { FilePicker, PasswordInput, StrengthMeter } from "@/components/Kit";
 import {
@@ -301,20 +301,33 @@ function Create({
   const [ok, setOk] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  // zxcvbn dictionaries are large: load them only on this screen
-  const [assess, setAssess] = useState<
-    typeof import("@/lib/passwordStrength").assessPassphrase | null
-  >(null);
-  useEffect(() => {
-    void import("@/lib/passwordStrength").then((m) => setAssess(() => m.assessPassphrase));
-  }, []);
-  const check = (p: string): string | null => {
+  // The strength library (zxcvbn and its dictionaries) is about 850 KB compressed. It is fetched
+  // the first time a passphrase field is touched, not when the page opens, so people who only
+  // look (or only restore a backup) never pay for it; submitting waits for it if it is not here yet.
+  type Assess = typeof import("@/lib/passwordStrength").assessPassphrase;
+  const [assess, setAssess] = useState<Assess | null>(null);
+  const loading = useRef<Promise<Assess> | null>(null);
+  const loadAssess = (): Promise<Assess> => {
+    loading.current ??= import("@/lib/passwordStrength").then(
+      (m) => {
+        setAssess(() => m.assessPassphrase);
+        return m.assessPassphrase;
+      },
+      (e: unknown) => {
+        loading.current = null; // allow a retry after a network failure
+        throw e;
+      },
+    );
+    return loading.current;
+  };
+  const checkWith = (a: Assess | null, p: string): string | null => {
     const basic = passphraseProblem(p);
     if (basic) return basic;
-    if (!assess) return null;
-    const r = assess(p);
+    if (!a) return null;
+    const r = a(p);
     return r.ok ? null : r.message;
   };
+  const check = (p: string) => checkWith(assess, p);
   const problem = p1 ? check(p1) : null;
   // UI only: the same rules as `check`, shown as a 0-4 bar
   const strength = p1 && assess && !passphraseProblem(p1) ? assess(p1) : null;
@@ -325,8 +338,18 @@ function Create({
       onSubmit={async (e) => {
         e.preventDefault();
         setErr("");
-        if (!assess) return setErr("لحظة، بنجهّز فحص قوة كلمة السر…");
-        const pr = check(p1);
+        let a = assess;
+        if (!a) {
+          setBusy(true);
+          try {
+            a = await loadAssess();
+          } catch {
+            setBusy(false);
+            return setErr("ما قدرناش نحمّل فحص قوة كلمة السر. اتأكد من النت وجرّب تاني.");
+          }
+          setBusy(false);
+        }
+        const pr = checkWith(a, p1);
         if (pr) return setErr(pr);
         if (p1 !== p2) return setErr("كلمتين السر مش زي بعض.");
         if (!ok) return setErr("لازم توافق على الملاحظة الأخيرة.");
@@ -373,6 +396,7 @@ function Create({
         onChange={setP1}
         autoComplete="new-password"
         describedBy="p1-hint"
+        onFirstFocus={() => void loadAssess().catch(() => undefined)}
       />
       <StrengthMeter level={level} />
       <p id="p1-hint" className="field-hint" aria-live="polite">
@@ -384,7 +408,13 @@ function Create({
       <label className="field-label mt-4" htmlFor="p2">
         اكتبها تاني
       </label>
-      <PasswordInput id="p2" value={p2} onChange={setP2} autoComplete="new-password" />
+      <PasswordInput
+        id="p2"
+        value={p2}
+        onChange={setP2}
+        autoComplete="new-password"
+        onFirstFocus={() => void loadAssess().catch(() => undefined)}
+      />
       {p2 && p1 !== p2 && <p className="field-hint">لسه مش زي الأولى.</p>}
       <div className="mt-5 flex items-start gap-3 rounded-lg bg-gold-soft p-3.5">
         <input

@@ -14,6 +14,7 @@ import {
   backupState,
   buildReviewIcs,
   nextStep,
+  readiness,
   quickAdd,
   readLastBackup,
   readQuizGaps,
@@ -23,13 +24,15 @@ import {
   type GroupKey,
   type ListKey,
 } from "@/lib/home";
-import { MAX_ROWS, completion, downloadBlob, familyCopy, today, type Plan } from "@/lib/plan";
+import { MAX_ROWS, downloadBlob, familyCopy, today, type Plan } from "@/lib/plan";
 import {
   KEY_SECTIONS,
   SECTION_LABELS,
+  isEssential,
   SECTION_ORDER,
   missingKeySections,
   sectionDone,
+  findingPlaces,
   sensitiveFindings,
   type SectionKey,
 } from "@/lib/review";
@@ -241,8 +244,7 @@ function FilePage() {
     return () => clearTimeout(t);
   }, [toast]);
   const plan = v.session?.plan;
-  const doneCount = plan ? SECTION_ORDER.filter((k) => sectionDone(plan)[k]).length : 0;
-  const shownCount = useCountUp(doneCount);
+  const shownCount = useCountUp(plan ? readiness(plan).essentialDone : 0);
 
   if (!v.session || !plan)
     return (
@@ -252,7 +254,8 @@ function FilePage() {
     );
   const p = plan;
   const u = v.update;
-  const pct = completion(p);
+  const rd = readiness(p);
+  const pct = rd.pct;
   const done = sectionDone(p);
   const next = nextStep(p);
   const setOwner = (k: keyof Plan["owner"]) => (val: string) =>
@@ -288,7 +291,12 @@ function FilePage() {
         onChange={setOwner("city")}
         placeholder="مثلًا: الرياض — وأهلي في المنصورة"
       />
-      <Field label="ملاحظات" value={p.owner.notes} onChange={setOwner("notes")} />
+      <Field
+        label="ملاحظات"
+        value={p.owner.notes}
+        onChange={setOwner("notes")}
+        sensitive="secret"
+      />
     </div>,
     <Area
       key={1}
@@ -312,7 +320,7 @@ function FilePage() {
         { k: "name", l: "الاسم" },
         { k: "relation", l: "الصلة", ph: "أخ، زميل، صاحب…" },
         { k: "phone", l: "الرقم" },
-        { k: "note", l: "ليه تكلموه", ph: "عارف حاجات الشغل" },
+        { k: "note", l: "ليه تكلموه", ph: "عارف حاجات الشغل", sensitive: "secret" },
       ]}
     />,
     <div key={3} className="grid gap-3 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
@@ -398,7 +406,7 @@ function FilePage() {
         { k: "who", l: "مين" },
         { k: "amount", l: "المبلغ" },
         { k: "currency", l: "العملة", ph: "ريال / جنيه" },
-        { k: "proof", l: "الإثبات فين", ph: "إيصال، رسايل واتساب…" },
+        { k: "proof", l: "الإثبات فين", ph: "إيصال، رسايل واتساب…", sensitive: "secret" },
       ]}
     />,
     <Rows
@@ -413,7 +421,7 @@ function FilePage() {
         { k: "to", l: "لمين" },
         { k: "amount", l: "المبلغ" },
         { k: "currency", l: "العملة" },
-        { k: "how", l: "إزاي تتدفع" },
+        { k: "how", l: "إزاي تتدفع", sensitive: "secret" },
       ]}
     />,
     <Rows
@@ -425,9 +433,9 @@ function FilePage() {
       itemLabel="حاجة"
       example="مثلًا: شقة · المنصورة · العقد مع أمي"
       cols={[
-        { k: "item", l: "الحاجة", ph: "شقة، عربية، دهب، ورق…" },
-        { k: "location", l: "مكانها" },
-        { k: "holder", l: "مع مين" },
+        { k: "item", l: "الحاجة", ph: "شقة، عربية، دهب، ورق…", sensitive: "secret" },
+        { k: "location", l: "مكانها", sensitive: "secret" },
+        { k: "holder", l: "مع مين", sensitive: "secret" },
       ]}
     />,
     <Rows
@@ -562,7 +570,9 @@ function FilePage() {
             ))}
             {findings.map((f) => (
               <div key={`sensitive-${f.section}`} className="space-y-2">
-                <p>في «{f.label}»:</p>
+                <p>
+                  في «{f.label}» {findingPlaces(f)}:
+                </p>
                 <ul className="list-disc space-y-1 ps-5">
                   {f.warnings.map((w) => (
                     <li key={w}>{w}</li>
@@ -669,19 +679,19 @@ function FilePage() {
         />
         <div className="relative grid gap-5 md:grid-cols-2 md:items-end">
           <div>
-            <p className="text-sm opacity-85">اكتمال الملف · {pct}%</p>
+            <p className="text-sm opacity-85">جاهزية الملف للأهل · {pct}%</p>
             <p className="mt-3 flex items-end gap-3">
               <span className="num text-[5.75rem] md:text-[7.5rem]">{shownCount}</span>
               <span className="pb-1.5 text-sm leading-5 opacity-90">
-                قسم جاهز
+                أساسي جاهز
                 <br />
-                من {SECTION_ORDER.length}
+                من {rd.essentialTotal}
               </span>
             </p>
             <div
               className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/15"
               role="progressbar"
-              aria-label="اكتمال الملف"
+              aria-label="جاهزية الملف للأهل"
               aria-valuenow={pct}
               aria-valuemin={0}
               aria-valuemax={100}
@@ -693,7 +703,30 @@ function FilePage() {
             </div>
           </div>
           <div className="flex items-center justify-between gap-3 rounded-[24px] bg-white/10 p-3 ps-4">
-            {next ? (
+            {rd.ready ? (
+              <>
+                <div className="min-w-0">
+                  <p className="font-bold">{next ? "جاهز للتسليم ✓" : "الملف كامل ✓"}</p>
+                  <p className="text-[0.8125rem] leading-5 opacity-80">
+                    {next
+                      ? "الأساسيات كلها موجودة. الباقي اختياري."
+                      : "سلّمه لأهلك، وراجعه كل كام شهر."}
+                  </p>
+                  {next && (
+                    <button
+                      type="button"
+                      className="mt-1 text-[0.8125rem] font-semibold text-gold-light underline underline-offset-4"
+                      onClick={() => go({ s: next })}
+                    >
+                      لو عايز تزوّد: {SECTION_LABELS[next]} (اختياري)
+                    </button>
+                  )}
+                </div>
+                <Link to="/handover" className="btn-gold btn-sm shrink-0">
+                  سلّم أهلك
+                </Link>
+              </>
+            ) : next ? (
               <>
                 <div className="min-w-0">
                   <p className="text-xs opacity-80">الخطوة الجاية</p>
@@ -704,19 +737,7 @@ function FilePage() {
                   كمّل
                 </button>
               </>
-            ) : (
-              <>
-                <div className="min-w-0">
-                  <p className="font-bold">الملف كامل ✓</p>
-                  <p className="text-[0.8125rem] leading-5 opacity-80">
-                    سلّمه لأهلك، وراجعه كل كام شهر.
-                  </p>
-                </div>
-                <Link to="/handover" className="btn-gold btn-sm shrink-0">
-                  سلّم أهلك
-                </Link>
-              </>
-            )}
+            ) : null}
           </div>
         </div>
       </section>
@@ -785,7 +806,13 @@ function FilePage() {
             >
               <span className="flex items-center justify-between gap-2">
                 <span className="text-xs opacity-70">
-                  {isNext ? "الخطوة الجاية" : important ? "مهم لأهلك" : groupName(k)}
+                  {isNext
+                    ? "الخطوة الجاية"
+                    : important
+                      ? "مهم لأهلك"
+                      : isEssential(k) || done[k]
+                        ? groupName(k)
+                        : `${groupName(k)} · اختياري`}
                 </span>
                 {done[k] ? (
                   <span className="grid size-6 place-items-center rounded-full bg-primary text-primary-foreground">

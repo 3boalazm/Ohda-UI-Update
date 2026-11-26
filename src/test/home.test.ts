@@ -9,6 +9,7 @@ import {
   backupState,
   buildReviewIcs,
   nextStep,
+  readiness,
   quickAdd,
   quizGaps,
   readLastBackup,
@@ -185,5 +186,34 @@ describe("quiz follow-ups", () => {
     expect(readQuizGaps()).toEqual(["banks"]);
     writeQuizGaps(null);
     expect(readQuizGaps()).toEqual([]);
+  });
+});
+
+describe("readiness separates what the family needs from what is optional", () => {
+  const essentials = (): Plan => ({
+    ...filled(),
+    work: { ...emptyPlan().work, employer: "شركة" },
+    banks: [{ name: "بنك", country: "", type: "", note: "" }],
+  });
+
+  it("starts at zero and counts only the five essential sections", () => {
+    const r = readiness(emptyPlan());
+    expect(r).toMatchObject({ essentialDone: 0, essentialTotal: 5, pct: 0, ready: false });
+    expect(r.optionalTotal).toBe(7);
+  });
+
+  it("is ready once the essentials are in, even with every optional section empty", () => {
+    const r = readiness(essentials());
+    expect(r).toMatchObject({ essentialDone: 5, pct: 100, ready: true, optionalDone: 0 });
+    // the next suggestion is then an optional section, and it is not blocked by the letter
+    expect(nextStep(essentials())).toBe("insurance");
+  });
+
+  it("optional sections never change the percentage", () => {
+    const more: Plan = { ...essentials(), letter: "رسالة", wishes: "حاجة", accounts: [] };
+    expect(readiness(more).pct).toBe(100);
+    expect(readiness(more).optionalDone).toBe(2);
+    const half: Plan = { ...filled(), letter: "رسالة" };
+    expect(readiness(half).pct).toBe(60); // owner, firstSteps, contacts of 5
   });
 });

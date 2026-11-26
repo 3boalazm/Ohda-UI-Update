@@ -174,24 +174,6 @@ export function familyCopy(p: Plan): Plan {
   };
 }
 
-export function completion(p: Plan): number {
-  const checks = [
-    !!p.owner.name,
-    !!p.owner.phone,
-    p.firstSteps.trim().length > 10,
-    p.contacts.some((c) => c.name && c.phone),
-    !!p.work.employer,
-    p.banks.some((b) => b.name),
-    p.insurance.some((i) => i.company),
-    p.owedToMe.length + p.iOwe.length > 0,
-    p.assets.some((a) => a.item),
-    p.accounts.some((a) => a.name),
-    p.wishes.trim().length > 0,
-    p.letter.trim().length > 0,
-  ];
-  return Math.round((checks.filter(Boolean).length / checks.length) * 100);
-}
-
 // ---------- sensitive input warnings ----------
 export const DIGITS_WARNING = "ما تكتبش أرقام حسابات كاملة — اسم البنك ونوع الحساب كفاية";
 export const SECRET_WARNING = "ما تكتبش كلمات سر أو رموز تحقق (OTP) هنا أبدًا.";

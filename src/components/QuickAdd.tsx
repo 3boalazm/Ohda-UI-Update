@@ -43,8 +43,41 @@ export function QuickAdd({
     if (!open) return;
     setType(null);
     setValue("");
-    const t = setTimeout(() => sheet.current?.querySelector<HTMLElement>("button")?.focus(), 80);
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
+    // focus the first choice (not the close button), once the sheet has started to slide in
+    const t = setTimeout(
+      () =>
+        (
+          sheet.current?.querySelector<HTMLElement>("ul button") ??
+          sheet.current?.querySelector<HTMLElement>("button")
+        )?.focus(),
+      80,
+    );
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") return close();
+      if (e.key !== "Tab") return;
+      // the dialog is modal: Tab and Shift+Tab stay inside it
+      const root = sheet.current;
+      if (!root) return;
+      const items = [
+        ...root.querySelectorAll<HTMLElement>(
+          'button:not([disabled]):not([tabindex="-1"]), input:not([disabled]), a[href]',
+        ),
+      ];
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (!first || !last) return;
+      const at = document.activeElement;
+      if (!at || !root.contains(at)) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && at === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && at === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     document.addEventListener("keydown", onKey);
     return () => {
       clearTimeout(t);
@@ -165,7 +198,7 @@ export function QuickAdd({
                 e.preventDefault();
                 if (!value.trim() || full) return input.current?.focus();
                 onAdd(type, value);
-                setOpen(false);
+                close(); // closes and puts the focus back on the + button
               }}
             >
               <h2 className="text-xl font-bold">{type.title}</h2>

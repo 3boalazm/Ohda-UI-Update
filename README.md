@@ -1,5 +1,50 @@
 # Ohda Family
 
+## CURRENT STATE (read this first; updated 2026-11-26)
+
+Everything **below the line "ORIGINAL BUILD BRIEF"** is the first prompt the app was generated from. It is kept for history and is **out of date** in places (the data model, the pages, the fonts, the family template). For what the app does today, trust the source and this section.
+
+### Stack and deploys
+- TanStack Start + React 19 + Tailwind v4, built with Vite. The default build targets Cloudflare Workers (Lovable); `vercel.json` + `scripts/vercel-output.mjs` build for Vercel (`NITRO_PRESET=vercel`, then copy `public/_headers` rules into Vercel's config).
+- `VITE_DEMO_MODE=1` (build-time constant `__OHDA_DEMO__`, see `src/lib/demo.ts`) runs every screen without a backend: sample activation codes, a fake admin login, in-memory data. Normal builds drop all demo code. Do not set it on a real deployment.
+- Server data lives only in Supabase (hashed activation codes, audit log, rate limits). Server env vars: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `RATE_LIMIT_SECRET`.
+- Checks that must pass: `tsc --noEmit`, `lint`, `vitest run`, `db/test/run.sh`, `build`, and the browser checks in `e2e/` (`journey.cjs`, `csp-smoke.cjs`). On Node 26 run vitest with `NODE_OPTIONS=--no-experimental-webstorage`.
+
+### Data model (the plan object, stored only encrypted; envelope format v1 is frozen)
+`{ v:1, updated, owner, firstSteps, contacts[], work, banks[], insurance[], owedToMe[], iOwe[], assets[], accounts[], wishes, letter, handover? }`
+- `accounts[]` = `{ name, login, action, note }`: online accounts (email, social, phone line), what they are registered with and what the family should do. **Never passwords.**
+- `letter` = a personal message shown first when the family opens the file.
+- Files written before 2026-11 have neither field; `normalizePlan` fills them with empty values. `familyCopy` is an allowlist: a new field reaches family files only if it is added there.
+- Two display names live in the family template: "حساباته على النت" and "رسالة ليكم". Field labels must stay identical to the template's `render()`.
+
+### Family template
+`public/family-template.html` is pinned by hash (`src/lib/familyTemplateHash.ts`, `public/_headers`, `family-template.test.ts`). Any change must update the whole-file hash, the script hash and both `_headers` blocks together, and keep the decryptor untouched. Section B below is the **original** template and no longer matches the file.
+
+### Owner screens (`/file`)
+- Home: one green "readiness" screen (big number = essential sections ready), the single next step, section tiles filtered by the big words (الناس / الشغل / الفلوس / الأوراق), a + button that opens the quick-add sheet (`src/components/QuickAdd.tsx`: pick a type, fill one field, details later), a backup card, a 6-month calendar reminder (`.ics`, no server), "حصل تغيير؟" shortcuts.
+- Each section is its own screen: `/file?s=<section>`; the preview is `/file?v=preview`. The phone's back button therefore returns home.
+- Logic lives in `src/lib/home.ts` (readiness, next step, quick-add, reminder, backup age, quiz follow-ups) and `src/lib/review.ts` (sections, sensitive-content review). The only things kept in localStorage are the date of the last backup and the quiz topics answered "no" (saved when the user starts a file); never file content.
+- **Readiness**: counts only the essential sections (`ESSENTIAL_SECTIONS`: owner, firstSteps, contacts, work, banks). Everything else is optional and never lowers the number. "Ready to hand over" means all essentials are filled; the next suggestions after that are labelled optional.
+- The quick-add sheet is a modal dialog: Tab stays inside it, Escape closes, and focus returns to the + button.
+
+### Sensitive content
+- While typing: every text area warns about passwords and one-time codes; bank/insurance fields also warn about runs of 10+ digits; other free-text fields warn about secrets only (phone numbers and amounts are normal there).
+- Before the family file is downloaded (`/handover` step 3, and the owner's preview): `sensitiveFindings` checks **the whole family copy**, including the letter, first steps, wishes and notes. Financial sections (banks, insurance) check for account numbers and secrets; every other section checks for secrets only. Each finding names the section and the rows, with a link to fix it.
+- The owner may continue after seeing a warning. The confirmation says so plainly ("I saw these and want to continue") and never claims the file is clean.
+
+### Look and feel
+- Tokens and utility classes are in `src/styles.css` (`@utility` blocks; Tailwind v4 cannot `@apply` component classes). Soft grey ground, white borderless round surfaces, pill buttons, one ink primary per screen, gold as the only warm accent.
+- Font: IBM Plex Sans Arabic, **self-hosted** from `@fontsource` (explicit `@font-face` for Arabic + Latin woff2 in `styles.css`; Vite is told never to inline fonts because the CSP allows `font-src 'self'` only). Hard rule 1 below still holds: no third-party fonts or CDNs.
+- Illustrations are in `src/assets/art/` (WebP, about 175 KB in total) and are rendered with `src/components/Art.tsx` (decorative, empty alt). `public/og-image.jpg` is the 1200x630 social card.
+- Shared pieces: `src/components/Kit.tsx` (file picker, password input, strength bar, code display, stepper), `Icon.tsx`, `QuickAdd.tsx`.
+
+### Performance note
+The password-strength library (zxcvbn and its dictionaries, about 850 KB compressed) is loaded the first time a passphrase field is focused on `/start`, and submitting waits for it. It is not loaded on other screens.
+
+---
+
+## ORIGINAL BUILD BRIEF (historical, partly out of date)
+
 Build "عُهدة | Ohda" — an Arabic-first (RTL, lang="ar") privacy-first web app by Code & Canvas for individuals in Saudi Arabia and Egypt (primary audience: Egyptians working in Saudi Arabia and their families in Egypt). Tagline: «لو غبت فجأة… أهلك يعرفوا يبدأوا منين؟». It helps a person prepare an encrypted "family file" that tells their family where to start if they are suddenly absent (accident, hospital, sudden return, death). Copy in clear, warm Arabic that Egyptians and Saudis both understand (light Egyptian tone is fine). Mobile-first. This is a PILOT: show a small "نسخة تجريبية" badge in the header.
 
 ## HARD RULES (security & honesty)

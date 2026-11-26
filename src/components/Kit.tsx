@@ -65,6 +65,7 @@ export function PasswordInput({
   autoComplete,
   autoFocus,
   describedBy,
+  onFirstFocus,
 }: {
   id: string;
   value: string;
@@ -72,6 +73,8 @@ export function PasswordInput({
   autoComplete: string;
   autoFocus?: boolean;
   describedBy?: string;
+  /** called when the field gets focus (safe to call repeatedly): used to preload code lazily */
+  onFirstFocus?: () => void;
 }) {
   const [show, setShow] = useState(false);
   return (
@@ -82,6 +85,7 @@ export function PasswordInput({
         className="field pe-20"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={onFirstFocus}
         autoComplete={autoComplete}
         autoFocus={autoFocus}
         autoCapitalize="off"

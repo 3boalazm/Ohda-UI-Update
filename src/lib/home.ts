@@ -6,13 +6,45 @@
  * content: the date of the last backup download, and which quiz topics were answered "no".
  */
 import type { Plan } from "@/lib/plan";
-import { KEY_SECTIONS, SECTION_ORDER, sectionDone, type SectionKey } from "@/lib/review";
+import {
+  ESSENTIAL_SECTIONS,
+  KEY_SECTIONS,
+  SECTION_ORDER,
+  sectionDone,
+  type SectionKey,
+} from "@/lib/review";
 
-// ---------- next step ----------
-/** The section to fill next: what the family needs most first, then the editor's order. */
+// ---------- readiness and next step ----------
+export type Readiness = {
+  essentialDone: number;
+  essentialTotal: number;
+  optionalDone: number;
+  optionalTotal: number;
+  /** percent of the essential sections that are filled in */
+  pct: number;
+  /** every essential section is filled in: the file can be handed over */
+  ready: boolean;
+};
+/** How ready the file is for the family. Optional sections never lower it. */
+export function readiness(p: Plan): Readiness {
+  const done = sectionDone(p);
+  const optional = SECTION_ORDER.filter((k) => !ESSENTIAL_SECTIONS.includes(k));
+  const essentialDone = ESSENTIAL_SECTIONS.filter((k) => done[k]).length;
+  const essentialTotal = ESSENTIAL_SECTIONS.length;
+  return {
+    essentialDone,
+    essentialTotal,
+    optionalDone: optional.filter((k) => done[k]).length,
+    optionalTotal: optional.length,
+    pct: Math.round((essentialDone / essentialTotal) * 100),
+    ready: essentialDone === essentialTotal,
+  };
+}
+
+/** The section to fill next: what the family needs most, then the other essentials, then optional. */
 export function nextStep(p: Plan): SectionKey | null {
   const done = sectionDone(p);
-  return [...KEY_SECTIONS, ...SECTION_ORDER].find((k) => !done[k]) ?? null;
+  return [...KEY_SECTIONS, ...ESSENTIAL_SECTIONS, ...SECTION_ORDER].find((k) => !done[k]) ?? null;
 }
 
 // ---------- groups (the big-word filter) ----------

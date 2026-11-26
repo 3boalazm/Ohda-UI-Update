@@ -17,7 +17,7 @@ import {
   type Activation,
   type Plan,
 } from "@/lib/plan";
-import { SECTION_LABELS, missingKeySections, sensitiveFindings } from "@/lib/review";
+import { SECTION_LABELS, findingPlaces, missingKeySections, sensitiveFindings } from "@/lib/review";
 import { useVault } from "@/lib/vault";
 
 export const Route = createFileRoute("/handover")({
@@ -284,7 +284,7 @@ function Flow({ act }: { act: Activation }) {
     : pending && !activated
       ? "أكّد الكروت الجديدة في خطوة 2 الأول."
       : needsReview
-        ? "علّم على «راجعتها» فوق عشان تقدر تنزّل."
+        ? "عدّل التحذيرات اللي فوق، أو علّم إنك شفتها وعايز تكمّل."
         : null;
   const modeText = (sp: boolean) => (sp ? "الكود متقسّم على شخصين" : "كود واحد مع شخص واحد");
 
@@ -593,13 +593,29 @@ function Flow({ act }: { act: Activation }) {
                 )}
                 {findings.length > 0 && (
                   <div className="space-y-2">
-                    <ul className="list-disc space-y-1 ps-5">
+                    <p className="font-semibold">فيه نص ممكن يكون حساس في الملف:</p>
+                    <ul className="space-y-2">
                       {findings.map((f) => (
-                        <li key={f.section}>
-                          في «{f.label}»: {f.warnings.join("، ")}
+                        <li
+                          key={f.section}
+                          className="flex flex-wrap items-center justify-between gap-2"
+                        >
+                          <span className="min-w-0">
+                            في «{f.label}» {findingPlaces(f)}: {f.warnings.join("، ")}
+                          </span>
+                          <Link
+                            to="/file"
+                            search={{ s: f.section }}
+                            className="btn-outline btn-sm shrink-0"
+                          >
+                            عدّله
+                          </Link>
                         </li>
                       ))}
                     </ul>
+                    <p className="text-sm text-muted-foreground">
+                      الأحسن تشيله من الملف. لو سبته، أهلك هيقرأوه ومحدش غيرك هيراجعه.
+                    </p>
                     <label className="flex items-start gap-2">
                       <input
                         type="checkbox"
@@ -607,7 +623,9 @@ function Flow({ act }: { act: Activation }) {
                         checked={reviewed}
                         onChange={(e) => setReviewed(e.target.checked)}
                       />
-                      <span>راجعتها، ومفيش أرقام حسابات كاملة ولا كلمات سر في الملف</span>
+                      <span>
+                        شفت التحذيرات دي وعايز أكمّل بالرغم منها. أنا المسؤول عن اللي في الملف.
+                      </span>
                     </label>
                   </div>
                 )}
