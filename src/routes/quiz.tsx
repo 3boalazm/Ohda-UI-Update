@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Page, meta } from "@/components/Brand";
+import { quizGaps, writeQuizGaps } from "@/lib/home";
 
 export const Route = createFileRoute("/quiz")({
   head: () =>
@@ -106,7 +107,12 @@ function Quiz() {
             </div>
           )}
           <div className="flex flex-wrap gap-3">
-            <Link to="/start" className="btn-primary">
+            <Link
+              to="/start"
+              className="btn-primary"
+              // kept on this device only, so the file can list what is still missing
+              onClick={() => writeQuizGaps(quizGaps(answers))}
+            >
               ابدأ ملفك مجانًا
             </Link>
             <button className="btn-outline" onClick={share}>
@@ -117,7 +123,8 @@ function Quiz() {
             </button>
           </div>
           <p className="text-xs text-muted-foreground">
-            إجاباتك ما بتتحفظش في أي مكان. المشاركة بتبعت دعوة للاختبار بس، مش نتيجتك.
+            إجاباتك ما بتتبعتش لأي مكان. لو بدأت ملفك، المواضيع الناقصة بتتحفظ على جهازك ده بس عشان
+            نفكّرك بيها جوه الملف. المشاركة بتبعت دعوة للاختبار بس، مش نتيجتك.
           </p>
         </div>
       )}

@@ -9,11 +9,11 @@
   X-Permitted-Cross-Domain-Policies: none
 
 /family-template.html
-  Content-Security-Policy: default-src 'none'; script-src 'sha256-fb+Wr/oyPL04ZfbkAq5T4ydf9+3qVsjhiTu6LOcAVEI='; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'none'; script-src 'sha256-0Y4/Lbuze3o8o1Fli3AsGAHKlwL5GURwaEc0Zy9XfJk='; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
   Cache-Control: no-cache
 
 /family-template
-  Content-Security-Policy: default-src 'none'; script-src 'sha256-fb+Wr/oyPL04ZfbkAq5T4ydf9+3qVsjhiTu6LOcAVEI='; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'none'; script-src 'sha256-0Y4/Lbuze3o8o1Fli3AsGAHKlwL5GURwaEc0Zy9XfJk='; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
   Cache-Control: no-cache
 
 /assets/*

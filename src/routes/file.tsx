@@ -2,7 +2,27 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Page, meta } from "@/components/Brand";
 import { Area, Field, NeedUnlock } from "@/components/Fields";
+import { Icon } from "@/components/Icon";
 import { PlanView } from "@/components/PlanView";
+import { QuickAdd } from "@/components/QuickAdd";
+import {
+  GROUPS,
+  LIFE_EVENTS,
+  SECTION_GROUP,
+  SECTION_HINT,
+  backupAgeText,
+  backupState,
+  buildReviewIcs,
+  nextStep,
+  quickAdd,
+  readLastBackup,
+  readQuizGaps,
+  sectionCount,
+  writeLastBackup,
+  writeQuizGaps,
+  type GroupKey,
+  type ListKey,
+} from "@/lib/home";
 import { MAX_ROWS, completion, downloadBlob, familyCopy, today, type Plan } from "@/lib/plan";
 import {
   KEY_SECTIONS,
@@ -11,8 +31,11 @@ import {
   missingKeySections,
   sectionDone,
   sensitiveFindings,
+  type SectionKey,
 } from "@/lib/review";
 import { useVault } from "@/lib/vault";
+
+type FileSearch = { s?: SectionKey; v?: "preview" };
 
 export const Route = createFileRoute("/file")({
   head: () => ({
@@ -22,24 +45,39 @@ export const Route = createFileRoute("/file")({
       { name: "robots", content: "noindex" },
     ],
   }),
+  // which screen is open lives in the URL, so the phone's back button goes home, not away
+  validateSearch: (q: Record<string, unknown>): FileSearch => ({
+    ...(typeof q["s"] === "string" && (SECTION_ORDER as string[]).includes(q["s"])
+      ? { s: q["s"] as SectionKey }
+      : {}),
+    ...(q["v"] === "preview" ? { v: "preview" as const } : {}),
+  }),
   component: FilePage,
 });
 
-const SECTIONS = [
-  "بياناتك",
-  "ابدأوا من هنا",
-  "مين يكلموا الأول",
-  "الشغل في السعودية",
-  "البنوك",
-  "التأمين",
-  "فلوس ليك عند ناس",
-  "فلوس عليك لناس",
-  "الأملاك والأوراق",
-  "رغبات غير ملزمة",
-];
+type ColDef = { k: string; l: string; ph?: string; sensitive?: boolean | "secret" };
 
-type ListKey = "contacts" | "banks" | "insurance" | "owedToMe" | "iOwe" | "assets";
-type ColDef = { k: string; l: string; ph?: string; sensitive?: boolean };
+/** Counts up to `to` when it changes (skipped when the user asked for reduced motion). */
+function useCountUp(to: number): number {
+  const [shown, setShown] = useState(to);
+  const from = useRef(to);
+  useEffect(() => {
+    const start = from.current;
+    from.current = to;
+    if (start === to || window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+      return setShown(to);
+    const t0 = performance.now();
+    let raf = 0;
+    const step = (now: number) => {
+      const p = Math.min(1, (now - t0) / 600);
+      setShown(Math.round(start + (to - start) * (1 - (1 - p) ** 3)));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [to]);
+  return shown;
+}
 
 function Rows({
   plan,
@@ -176,28 +214,47 @@ function Rows({
 function FilePage() {
   const v = useVault();
   const nav = useNavigate();
-  const [step, setStep] = useState(0);
-  const [preview, setPreview] = useState(false);
+  const { s: openKey, v: view } = Route.useSearch();
+  const go = (search: FileSearch) => void nav({ to: "/file", search });
+  const [group, setGroup] = useState<GroupKey>("all");
   const [confirmDel, setConfirmDel] = useState(false);
   // Unsaved edits that could not be written here: export first, user confirms, then discard.
   const [lockProblem, setLockProblem] = useState(false);
   const [recoveryDownloaded, setRecoveryDownloaded] = useState(false);
   const [recoveryKept, setRecoveryKept] = useState(false);
-  // UI only: the plan object as it was at the last backup in this session (plans are replaced on
-  // every edit, so identity tells whether anything changed since), and the mobile section list.
-  const [backedUp, setBackedUp] = useState<Plan | null>(null);
-  const [navOpen, setNavOpen] = useState(false);
-  const sectionRef = useRef<HTMLElement>(null);
-  if (!v.session)
+  // UI only (no file content): when the last backup was downloaded, quiz follow-ups, a toast,
+  // and which tile to pulse after a quick add.
+  const [lastBackup, setLastBackup] = useState<string | null>(null);
+  const [quizTodo, setQuizTodo] = useState<SectionKey[]>([]);
+  const [toast, setToast] = useState<{ text: string; go?: SectionKey } | null>(null);
+  const [bumped, setBumped] = useState<SectionKey | null>(null);
+  useEffect(() => {
+    setLastBackup(readLastBackup());
+    setQuizTodo(readQuizGaps());
+  }, []);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [openKey, view]);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(t);
+  }, [toast]);
+  const plan = v.session?.plan;
+  const doneCount = plan ? SECTION_ORDER.filter((k) => sectionDone(plan)[k]).length : 0;
+  const shownCount = useCountUp(doneCount);
+
+  if (!v.session || !plan)
     return (
       <Page narrow>
         <NeedUnlock />
       </Page>
     );
-  const p = v.session.plan;
+  const p = plan;
   const u = v.update;
   const pct = completion(p);
   const done = sectionDone(p);
+  const next = nextStep(p);
   const setOwner = (k: keyof Plan["owner"]) => (val: string) =>
     u((x) => ({ ...x, owner: { ...x.owner, [k]: val } }));
   const setWork = (k: keyof Plan["work"]) => (val: string) =>
@@ -210,18 +267,15 @@ function FilePage() {
     const env = await v.exportSnapshot();
     if (!env) return false;
     downloadBlob(JSON.stringify(env), `ohda-backup-${today()}.ohda`, "application/json");
-    setBackedUp(p);
+    const at = new Date().toISOString();
+    writeLastBackup(at);
+    setLastBackup(at);
     return true;
   }
 
-  /** Go to a section and bring its heading into view if it scrolled away. */
-  function goTo(i: number) {
-    setStep(i);
-    setNavOpen(false);
-    requestAnimationFrame(() => {
-      const el = sectionRef.current;
-      if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: "start" });
-    });
+  async function lock() {
+    if (await v.lock()) return nav({ to: "/start" });
+    setLockProblem(true); // edits could not be saved here: recovery steps below
   }
 
   const body = [
@@ -376,7 +430,27 @@ function FilePage() {
         { k: "holder", l: "مع مين" },
       ]}
     />,
-    <div key={9}>
+    <Rows
+      key={9}
+      plan={p}
+      upd={u}
+      list="accounts"
+      addLabel="ضيف حساب"
+      itemLabel="حساب"
+      example="مثلًا: جيميل · مسجّل برقم موبايلي · يتقفل"
+      cols={[
+        { k: "name", l: "الخدمة", ph: "جيميل، فيسبوك، خط التليفون…", sensitive: "secret" },
+        {
+          k: "login",
+          l: "مسجّل بإيه",
+          ph: "الإيميل أو الرقم، من غير كلمة السر",
+          sensitive: "secret",
+        },
+        { k: "action", l: "المطلوب", ph: "يتقفل، يتحوّل لذكرى، يتسلّم لحد", sensitive: "secret" },
+        { k: "note", l: "ملاحظة", sensitive: "secret" },
+      ]}
+    />,
+    <div key={10}>
       <p className="notice mb-3">
         ده مش وصية شرعية. لو عايز وصية رسمية اعملها عند الجهة المختصة واكتب هنا مكانها.
       </p>
@@ -386,124 +460,39 @@ function FilePage() {
         onChange={(val) => u((x) => ({ ...x, wishes: val }))}
       />
     </div>,
+    <Area
+      key={11}
+      label="رسالة لأهلك"
+      rows={8}
+      value={p.letter}
+      onChange={(val) => u((x) => ({ ...x, letter: val }))}
+      placeholder="كلام منك ليهم. هيظهر أول حاجة لما يفتحوا الملف."
+    />,
   ];
 
-  if (preview) {
-    const missing = missingKeySections(p);
-    const findings = sensitiveFindings(p);
-    return (
-      <Page narrow>
-        <div className="noprint mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="eyebrow">معاينة</p>
-            <h1 className="text-2xl font-bold">كده أهلك هيشوفوا الملف</h1>
-          </div>
-          <button className="btn-outline btn-sm" onClick={() => setPreview(false)}>
-            ارجع للتعديل
-          </button>
-        </div>
-        {(missing.length > 0 || findings.length > 0) && (
-          <div className="noprint warn mb-4 space-y-3">
-            <p className="font-semibold">قبل ما تسلّم ملفك:</p>
-            {missing.map((k) => (
-              <div key={`missing-${k}`} className="space-y-2">
-                <p>«{SECTION_LABELS[k]}» لسه فاضي — ده من أول الحاجات اللي أهلك هيدوّروا عليها.</p>
-                <button
-                  className="btn-outline btn-sm"
-                  onClick={() => {
-                    setPreview(false);
-                    goTo(SECTION_ORDER.indexOf(k));
-                  }}
-                >
-                  كمّله
-                </button>
-              </div>
-            ))}
-            {findings.map((f) => (
-              <div key={`sensitive-${f.section}`} className="space-y-2">
-                <p>في «{f.label}»:</p>
-                <ul className="list-disc space-y-1 ps-5">
-                  {f.warnings.map((w) => (
-                    <li key={w}>{w}</li>
-                  ))}
-                </ul>
-                <button
-                  className="btn-outline btn-sm"
-                  onClick={() => {
-                    setPreview(false);
-                    goTo(SECTION_ORDER.indexOf(f.section));
-                  }}
-                >
-                  عدّله
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        <PlanView plan={familyCopy(p)} nested />
-      </Page>
-    );
-  }
-
-  const doneCount = SECTION_ORDER.filter((k) => done[k]).length;
-  const stepKey = SECTION_ORDER[step];
-  const isLast = step === SECTIONS.length - 1;
-  const stateChip = (i: number) => {
-    const key = SECTION_ORDER[i];
-    if (key === undefined) return null;
-    if (done[key])
-      return (
-        <span className="chip-done px-2 text-xs" aria-label="مكتمل">
-          ✓
-        </span>
-      );
-    if (KEY_SECTIONS.includes(key)) return <span className="chip-todo px-2 text-xs">مهم</span>;
-    return null;
-  };
   const saveProblem = v.status === "error" || v.status === "conflict";
-
-  return (
-    <Page>
-      {/* title row: name, save status, the two page-level actions */}
-      <div className="noprint mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1.5">
-          <h1 className="text-[1.75rem] font-bold">ملفي</h1>
-          <p role="status" aria-live="polite">
-            {v.status === "saving" ? (
-              <span className="chip-neutral">بيتحفظ…</span>
-            ) : saveProblem ? (
-              <span className="chip bg-destructive/10 text-destructive">ما اتحفظش</span>
-            ) : (
-              <span className="chip-done">اتحفظ مشفّر على جهازك ✓</span>
-            )}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button className="btn-outline btn-sm" onClick={() => setPreview(true)}>
-            شوفه زي أهلك
-          </button>
-          <button
-            className="btn-ghost btn-sm"
-            onClick={async () => {
-              if (await v.lock()) return nav({ to: "/start" });
-              setLockProblem(true); // edits could not be saved here: recovery steps below
-            }}
-          >
-            اقفل
-          </button>
-        </div>
-      </div>
-
+  const saveChip = (
+    <p role="status" aria-live="polite">
+      {v.status === "saving" ? (
+        <span className="chip-neutral">بيتحفظ…</span>
+      ) : saveProblem ? (
+        <span className="chip bg-destructive/10 text-destructive">ما اتحفظش</span>
+      ) : (
+        <span className="chip-done">اتحفظ مشفّر على جهازك ✓</span>
+      )}
+    </p>
+  );
+  const problems = (
+    <>
       {saveProblem && (
-        <p className="warn noprint mb-5 border-destructive bg-destructive/5" role="alert">
+        <p className="warn noprint mb-4 bg-destructive/10" role="alert">
           {v.status === "error"
             ? "ما اتحفظش على الجهاز — نزّل نسخة احتياطية دلوقتي عشان ما يضيعش حاجة."
             : "الملف اتفتح واتعدّل في شاشة تانية. نزّل نسخة احتياطية من اللي هنا، وبعدين افتح الملف من جديد."}
         </p>
       )}
-
       {lockProblem && (
-        <div className="warn noprint mb-5 space-y-3" role="alert">
+        <div className="warn noprint mb-4 space-y-3" role="alert">
           <p className="font-semibold">
             فيه تعديلات ما اتحفظتش على الجهاز ده، فما قفلناش الملف عشان ما تضيعش.
           </p>
@@ -536,137 +525,353 @@ function FilePage() {
           </button>
         </div>
       )}
+    </>
+  );
+  /** The floating bar at the bottom of the screen; lets go at the end of the page. */
+  const bar = (children: React.ReactNode) => (
+    <div className="noprint pointer-events-none sticky bottom-4 z-30 mt-10">
+      <div className="pointer-events-auto relative mx-auto max-w-md">{children}</div>
+    </div>
+  );
 
-      {/* progress + the next big step */}
-      <div className="noprint mb-5 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border border-border bg-card px-5 py-4">
-        <div className="min-w-[12rem] flex-1">
-          <div className="flex justify-between gap-2 text-sm">
-            <span className="font-semibold">اكتمال الملف</span>
-            <span className="text-muted-foreground tabular-nums">
-              {doneCount} من {SECTIONS.length} أقسام · {pct}%
-            </span>
+  // ---------- preview: exactly what the family will see ----------
+  if (view === "preview") {
+    const missing = missingKeySections(p);
+    const findings = sensitiveFindings(p);
+    return (
+      <Page narrow>
+        <div className="noprint mb-5 flex items-center justify-between gap-3">
+          <div>
+            <p className="eyebrow">معاينة</p>
+            <h1 className="text-2xl font-bold">كده أهلك هيشوفوا الملف</h1>
           </div>
-          <div
-            className="mt-2 h-2 overflow-hidden rounded-full bg-muted"
-            role="progressbar"
-            aria-label="اكتمال الملف"
-            aria-valuenow={pct}
-            aria-valuemin={0}
-            aria-valuemax={100}
-          >
-            <div
-              className="h-full rounded-full bg-gold transition-all"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-        </div>
-        <Link to="/handover" className="btn-outline btn-sm">
-          سلّم أهلك
-        </Link>
-      </div>
-
-      <div className="grid gap-5 md:grid-cols-[230px_1fr]">
-        {/* sections: a full list on desktop; a compact picker that expands on phones */}
-        <nav aria-label="أقسام الملف" className="noprint">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-card px-4 py-3 text-start md:hidden"
-            aria-expanded={navOpen}
-            aria-controls="file-sections"
-            onClick={() => setNavOpen((o) => !o)}
-          >
-            <span className="min-w-0">
-              <span className="block text-xs text-muted-foreground">
-                القسم {step + 1} من {SECTIONS.length}
-              </span>
-              <span className="block truncate font-semibold">{SECTIONS[step]}</span>
-            </span>
-            <span className="shrink-0 text-sm font-semibold text-primary">
-              {navOpen ? "اقفل القائمة" : "كل الأقسام"}
-            </span>
+          <button className="btn-outline btn-sm" onClick={() => go({})}>
+            ارجع للتعديل
           </button>
-          <ol
-            id="file-sections"
-            className={`${navOpen ? "grid" : "hidden"} mt-2 gap-1 rounded-xl border border-border bg-card p-1.5 md:mt-0 md:grid md:border-0 md:bg-transparent md:p-0`}
-          >
-            {SECTIONS.map((s, i) => (
-              <li key={s}>
-                <button
-                  type="button"
-                  onClick={() => goTo(i)}
-                  aria-current={i === step ? "step" : undefined}
-                  className={`flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-start text-[0.9375rem] ${i === step ? "bg-primary font-semibold text-primary-foreground" : "hover:bg-secondary"}`}
-                >
-                  <span className="min-w-0">
-                    <span className={`tabular-nums ${i === step ? "" : "text-muted-foreground"}`}>
-                      {i + 1}.
-                    </span>{" "}
-                    {s}
-                  </span>
-                  {i === step ? null : stateChip(i)}
+        </div>
+        {(missing.length > 0 || findings.length > 0) && (
+          <div className="noprint warn mb-4 space-y-3">
+            <p className="font-semibold">قبل ما تسلّم ملفك:</p>
+            {missing.map((k) => (
+              <div key={`missing-${k}`} className="space-y-2">
+                <p>«{SECTION_LABELS[k]}» لسه فاضي — ده من أول الحاجات اللي أهلك هيدوّروا عليها.</p>
+                <button className="btn-outline btn-sm" onClick={() => go({ s: k })}>
+                  كمّله
                 </button>
-              </li>
+              </div>
             ))}
-          </ol>
-        </nav>
+            {findings.map((f) => (
+              <div key={`sensitive-${f.section}`} className="space-y-2">
+                <p>في «{f.label}»:</p>
+                <ul className="list-disc space-y-1 ps-5">
+                  {f.warnings.map((w) => (
+                    <li key={w}>{w}</li>
+                  ))}
+                </ul>
+                <button className="btn-outline btn-sm" onClick={() => go({ s: f.section })}>
+                  عدّله
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <PlanView plan={familyCopy(p)} nested />
+      </Page>
+    );
+  }
 
-        <section ref={sectionRef} className="panel scroll-mt-24" aria-labelledby="section-title">
-          <div className="mb-5 flex flex-wrap items-center gap-2">
-            <h2 id="section-title" className="text-xl font-bold text-primary">
-              {SECTIONS[step]}
-            </h2>
-            {stepKey !== undefined && done[stepKey] && <span className="chip-done">✓ مكتمل</span>}
-            {stepKey !== undefined && !done[stepKey] && KEY_SECTIONS.includes(stepKey) && (
-              <span className="chip-todo">مهم لأهلك</span>
+  // ---------- one section ----------
+  if (openKey) {
+    const i = SECTION_ORDER.indexOf(openKey);
+    const prev = SECTION_ORDER[i - 1];
+    const after = SECTION_ORDER[i + 1];
+    return (
+      <Page narrow>
+        <div className="noprint mb-4 flex items-center justify-between gap-3">
+          <button className="btn-outline btn-sm ps-2.5" data-nav="home" onClick={() => go({})}>
+            <Icon name="back" className="size-4" />
+            ملفي
+          </button>
+          {saveChip}
+        </div>
+        {problems}
+        <section key={openKey} className="panel anim-rise" aria-labelledby="section-title">
+          <p className="text-sm text-muted-foreground tabular-nums">
+            القسم {i + 1} من {SECTION_ORDER.length}
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <h1 id="section-title" className="text-2xl font-bold">
+              {SECTION_LABELS[openKey]}
+            </h1>
+            {done[openKey] ? (
+              <span className="chip-done">✓ مكتمل</span>
+            ) : (
+              KEY_SECTIONS.includes(openKey) && <span className="chip-todo">مهم لأهلك</span>
             )}
           </div>
-          {body[step]}
-          {/* stays at the bottom of the screen on phones while the section is in view */}
-          <div className="sticky bottom-0 -mx-5 mt-6 -mb-5 flex items-center justify-between gap-3 rounded-b-2xl border-t border-border bg-card/95 px-5 py-3 backdrop-blur sm:-mx-6 sm:-mb-6 sm:px-6 md:static md:mx-0 md:mb-0 md:rounded-none md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+          <p className="mt-1 mb-5 text-muted-foreground">{SECTION_HINT[openKey]}</p>
+          {body[i]}
+        </section>
+        {bar(
+          <div className="flex items-center justify-between gap-2 rounded-full bg-card p-2 shadow-float">
             <button
               type="button"
               className="btn-ghost btn-sm"
-              disabled={step === 0}
-              onClick={() => goTo(step - 1)}
+              disabled={!prev}
+              onClick={() => prev && go({ s: prev })}
             >
               السابق
             </button>
-            {!isLast ? (
-              <button type="button" className="btn-primary btn-sm" onClick={() => goTo(step + 1)}>
-                التالي<span className="hidden sm:inline">: {SECTIONS[step + 1]}</span>
+            {after ? (
+              <button
+                type="button"
+                className="btn-primary btn-sm min-w-0"
+                onClick={() => go({ s: after })}
+              >
+                <span className="truncate">التالي: {SECTION_LABELS[after]}</span>
               </button>
             ) : (
-              <Link to="/handover" className="btn-primary btn-sm">
-                سلّم أهلك
-              </Link>
+              <button type="button" className="btn-primary btn-sm" onClick={() => go({})}>
+                خلصت، ارجع لملفي
+              </button>
+            )}
+          </div>,
+        )}
+      </Page>
+    );
+  }
+
+  // ---------- home ----------
+  const shown = SECTION_ORDER.filter((k) => group === "all" || SECTION_GROUP[k] === group);
+  const groupName = (k: SectionKey) => GROUPS.find(([g]) => g === SECTION_GROUP[k])?.[1] ?? "";
+  const quizLeft = quizTodo.filter((k) => !done[k]);
+  const bState = backupState(lastBackup, p.updated);
+
+  return (
+    <Page>
+      <div className="noprint mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-[2rem] leading-tight font-bold">ملفي</h1>
+          {saveChip}
+        </div>
+        <button className="btn-outline btn-sm" onClick={() => void lock()}>
+          <Icon name="lock" className="size-4" />
+          اقفل
+        </button>
+      </div>
+      {problems}
+
+      {/* the one colour screen: how ready the file is, and the single next step */}
+      <section className="color-screen noprint" aria-label="جاهزية الملف">
+        <span
+          aria-hidden="true"
+          className="absolute -end-14 -top-16 size-52 rounded-full border-[34px] border-white/[0.07]"
+        />
+        <div className="relative grid gap-5 md:grid-cols-2 md:items-end">
+          <div>
+            <p className="text-sm opacity-85">اكتمال الملف · {pct}%</p>
+            <p className="mt-3 flex items-end gap-3">
+              <span className="num text-[5.75rem] md:text-[7.5rem]">{shownCount}</span>
+              <span className="pb-1.5 text-sm leading-5 opacity-90">
+                قسم جاهز
+                <br />
+                من {SECTION_ORDER.length}
+              </span>
+            </p>
+            <div
+              className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/15"
+              role="progressbar"
+              aria-label="اكتمال الملف"
+              aria-valuenow={pct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div
+                className="h-full rounded-full bg-gold transition-[width] duration-500"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-[24px] bg-white/10 p-3 ps-4">
+            {next ? (
+              <>
+                <div className="min-w-0">
+                  <p className="text-xs opacity-80">الخطوة الجاية</p>
+                  <p className="truncate font-bold">{SECTION_LABELS[next]}</p>
+                  <p className="text-[0.8125rem] leading-5 opacity-80">{SECTION_HINT[next]}</p>
+                </div>
+                <button className="btn-gold btn-sm shrink-0" onClick={() => go({ s: next })}>
+                  كمّل
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="min-w-0">
+                  <p className="font-bold">الملف كامل ✓</p>
+                  <p className="text-[0.8125rem] leading-5 opacity-80">
+                    سلّمه لأهلك، وراجعه كل كام شهر.
+                  </p>
+                </div>
+                <Link to="/handover" className="btn-gold btn-sm shrink-0">
+                  سلّم أهلك
+                </Link>
+              </>
             )}
           </div>
+        </div>
+      </section>
+
+      {quizLeft.length > 0 && (
+        <section className="noprint mt-4 rounded-[28px] bg-gold-soft p-5" aria-label="من الاختبار">
+          <p className="font-bold">من الاختبار: حاجات أهلك لسه مش عارفينها</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {quizLeft.map((k) => (
+              <button key={k} className="btn-outline btn-sm" onClick={() => go({ s: k })}>
+                {SECTION_LABELS[k]}
+              </button>
+            ))}
+            <button
+              className="btn-ghost btn-sm"
+              onClick={() => {
+                writeQuizGaps(null);
+                setQuizTodo([]);
+              }}
+            >
+              شيل القايمة دي
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* big-word filter + the sections as tiles */}
+      <div
+        className="no-scrollbar noprint -mx-4 mt-7 flex gap-5 overflow-x-auto px-4"
+        role="group"
+        aria-label="نوع الأقسام"
+      >
+        {GROUPS.map(([g, label]) => (
+          <button
+            key={g}
+            type="button"
+            aria-pressed={group === g}
+            onClick={() => setGroup(g)}
+            className={`shrink-0 text-[1.75rem] leading-snug font-bold transition-opacity duration-200 ${group === g ? "" : "opacity-25 hover:opacity-50"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div
+        key={group}
+        className="noprint mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4"
+      >
+        {shown.map((k, i) => {
+          const isNext = k === next;
+          const important = !done[k] && KEY_SECTIONS.includes(k);
+          const count = sectionCount(p, k);
+          const tone = isNext
+            ? "bg-ink text-ink-foreground"
+            : important
+              ? "bg-gold-soft"
+              : "bg-card";
+          return (
+            <button
+              key={k}
+              type="button"
+              data-section={k}
+              onClick={() => go({ s: k })}
+              style={{ animationDelay: bumped === k ? "0ms" : `${i * 40}ms` }}
+              className={`flex min-h-[8.25rem] flex-col justify-between rounded-[26px] p-4 text-start transition-transform duration-150 active:scale-[0.97] ${tone} ${bumped === k ? "anim-bump" : "anim-rise"}`}
+            >
+              <span className="flex items-center justify-between gap-2">
+                <span className="text-xs opacity-70">
+                  {isNext ? "الخطوة الجاية" : important ? "مهم لأهلك" : groupName(k)}
+                </span>
+                {done[k] ? (
+                  <span className="grid size-6 place-items-center rounded-full bg-primary text-primary-foreground">
+                    <Icon name="check" className="size-3.5" />
+                  </span>
+                ) : (
+                  <span className="grid size-7 place-items-center rounded-full bg-current/10">
+                    <Icon name="back" className="size-3.5 rotate-180" />
+                  </span>
+                )}
+              </span>
+              <span className="flex items-end justify-between gap-2">
+                <span className="text-lg leading-snug font-bold">{SECTION_LABELS[k]}</span>
+                {count !== null && <span className="num text-4xl">{count}</span>}
+              </span>
+              <span className="sr-only">{done[k] ? "مكتمل" : "لسه ناقص"}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* keeping the file safe and current */}
+      <div className="noprint mt-7 grid gap-3 md:grid-cols-2">
+        <section
+          className={`flex flex-col gap-3 rounded-[28px] p-5 ${bState === "fresh" ? "bg-card" : "bg-gold-soft"}`}
+          aria-label="النسخة الاحتياطية"
+        >
+          <div>
+            <p className="font-bold">
+              {bState === "fresh"
+                ? "✓ النسخة الاحتياطية محدّثة"
+                : bState === "stale"
+                  ? "فيه تعديلات من بعد آخر نسخة"
+                  : "النسخة الاحتياطية هي نسختك الحقيقية"}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {backupAgeText(lastBackup)}. بيانات المتصفح ممكن تتمسح، فاحفظ النسخة في مكان آمن.
+            </p>
+          </div>
+          <button
+            className={`${bState === "fresh" ? "btn-outline" : "btn-primary"} btn-sm mt-auto self-start`}
+            onClick={() => void backup()}
+          >
+            <Icon name="download" className="size-4" />
+            نزّل نسخة احتياطية مشفّرة
+          </button>
+        </section>
+        <section className="flex flex-col gap-3 rounded-[28px] bg-card p-5" aria-label="تذكير">
+          <div>
+            <p className="font-bold">فكّرني أراجع الملف</p>
+            <p className="text-sm text-muted-foreground">
+              موعد على تقويم موبايلك كل 6 شهور. من غير حساب ولا إيميل.
+            </p>
+          </div>
+          <button
+            className="btn-outline btn-sm mt-auto self-start"
+            onClick={() => downloadBlob(buildReviewIcs(), "ohda-review.ics", "text/calendar")}
+          >
+            <Icon name="bell" className="size-4" />
+            ضيفه للتقويم
+          </button>
         </section>
       </div>
 
-      {/* the owner's real copy is the encrypted backup: one clear prompt, aware of new edits */}
-      <section
-        className="noprint mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gold/40 bg-gold-soft px-5 py-4"
-        aria-label="النسخة الاحتياطية"
-      >
-        <div className="min-w-[15rem] flex-1 space-y-0.5">
-          <p className="font-semibold">
-            {backedUp === p
-              ? "✓ نزّلت نسخة احتياطية بعد آخر تعديل"
-              : backedUp
-                ? "فيه تعديلات من بعد آخر نسخة نزّلتها"
-                : "النسخة الاحتياطية هي نسختك الحقيقية"}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            بيانات المتصفح ممكن تتمسح. نزّل نسخة بعد كل تعديل مهم واحفظها في مكان آمن.
-          </p>
+      <section className="noprint mt-7" aria-labelledby="events-title">
+        <h2 id="events-title" className="text-xl font-bold">
+          حصل تغيير؟
+        </h2>
+        <div className="no-scrollbar -mx-4 mt-3 flex gap-3 overflow-x-auto px-4 pb-1">
+          {LIFE_EVENTS.map((e) => (
+            <button
+              key={e.title}
+              type="button"
+              onClick={() => go({ s: e.section })}
+              className="w-52 shrink-0 rounded-[22px] bg-card p-4 text-start transition-transform active:scale-[0.97]"
+            >
+              <span className="block font-semibold">{e.title}</span>
+              <span className="mt-0.5 block text-[0.8125rem] leading-5 text-muted-foreground">
+                {e.hint}
+              </span>
+            </button>
+          ))}
         </div>
-        <button className="btn-outline btn-sm" onClick={() => void backup()}>
-          نزّل نسخة احتياطية مشفّرة
-        </button>
       </section>
 
-      <div className="noprint mt-10 border-t border-border pt-6">
+      <div className="noprint mt-10">
         {!confirmDel ? (
           <button
             className="btn-ghost btn-sm text-destructive hover:bg-destructive/5"
@@ -675,7 +880,7 @@ function FilePage() {
             امسح الملف من الجهاز
           </button>
         ) : (
-          <div className="panel border-destructive" role="alert">
+          <div className="panel" role="alert">
             <p className="font-semibold">
               متأكد؟ الملف هيتمسح من الجهاز ده نهائيًا. لو ما عندكش نسخة احتياطية مش هتقدر ترجّعه.
             </p>
@@ -684,6 +889,7 @@ function FilePage() {
                 className="btn-danger btn-sm"
                 onClick={async () => {
                   await v.destroy();
+                  writeLastBackup(null);
                   nav({ to: "/" });
                 }}
               >
@@ -696,6 +902,81 @@ function FilePage() {
           </div>
         )}
       </div>
+
+      {toast && (
+        <div
+          role="status"
+          className="anim-rise fixed inset-x-0 top-20 z-40 mx-auto flex w-max max-w-[92vw] items-center gap-3 rounded-full bg-ink py-2 ps-5 pe-2 text-sm font-semibold text-ink-foreground shadow-float"
+        >
+          <span className="truncate">{toast.text}</span>
+          {toast.go && (
+            <button
+              className="shrink-0 rounded-full bg-gold px-3 py-1.5 text-accent-foreground"
+              onClick={() => {
+                const k = toast.go;
+                setToast(null);
+                if (k) go({ s: k });
+              }}
+            >
+              كمّل التفاصيل
+            </button>
+          )}
+        </div>
+      )}
+
+      {bar(
+        <>
+          <nav
+            aria-label="ملفي"
+            className="flex h-16 items-center justify-around rounded-full bg-card ps-2 pe-[4.75rem] shadow-float"
+          >
+            <span
+              aria-current="page"
+              className="grid min-w-14 justify-items-center text-[0.6875rem] leading-4 font-semibold text-primary"
+            >
+              <Icon name="home" />
+              ملفي
+            </span>
+            <button
+              type="button"
+              onClick={() => go({ v: "preview" })}
+              className="grid min-h-12 min-w-14 justify-items-center text-[0.6875rem] leading-4 text-muted-foreground hover:text-foreground"
+            >
+              <Icon name="eye" />
+              زي أهلك
+            </button>
+            <button
+              type="button"
+              onClick={() => void backup()}
+              className="grid min-h-12 min-w-14 justify-items-center text-[0.6875rem] leading-4 text-muted-foreground hover:text-foreground"
+            >
+              <Icon name="download" />
+              نسخة
+            </button>
+            <Link
+              to="/handover"
+              className="grid min-h-12 min-w-14 content-center justify-items-center text-[0.6875rem] leading-4 text-muted-foreground hover:text-foreground"
+            >
+              <Icon name="send" />
+              سلّم أهلك
+            </Link>
+          </nav>
+          <QuickAdd
+            plan={p}
+            onOpenSection={(k) => go({ s: k })}
+            onAdd={(t, value) => {
+              u((x) => quickAdd(x, t, value, MAX_ROWS));
+              if (group !== "all" && group !== SECTION_GROUP[t.list]) setGroup("all");
+              setBumped(t.list);
+              setTimeout(() => setBumped(null), 700);
+              setToast({
+                text: `اتضاف «${value.trim()}» في ${SECTION_LABELS[t.list]}`,
+                go: t.list,
+              });
+            }}
+          />
+        </>,
+      )}
     </Page>
   );
 }

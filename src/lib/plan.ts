@@ -7,6 +7,8 @@ export type Insurance = { company: string; type: string; policyRef: string; note
 export type OwedToMe = { who: string; amount: string; currency: string; proof: string };
 export type IOwe = { to: string; amount: string; currency: string; how: string };
 export type Asset = { item: string; location: string; holder: string };
+/** An online account the family should know about. Never a password: only where it is and what to do. */
+export type OnlineAccount = { name: string; login: string; action: string; note: string };
 
 export interface Plan {
   v: 1;
@@ -30,7 +32,11 @@ export interface Plan {
   owedToMe: OwedToMe[];
   iOwe: IOwe[];
   assets: Asset[];
+  /** added 2026-11; older files simply have none */
+  accounts: OnlineAccount[];
   wishes: string;
+  /** personal message shown first when the family opens the file (added 2026-11) */
+  letter: string;
   handover?: Handover;
 }
 
@@ -73,7 +79,9 @@ export function emptyPlan(): Plan {
     owedToMe: [],
     iOwe: [],
     assets: [],
+    accounts: [],
     wishes: "",
+    letter: "",
   };
 }
 
@@ -134,7 +142,9 @@ export function normalizePlan(x: unknown): Plan {
     owedToMe: rows({ who: "", amount: "", currency: "", proof: "" }, p.owedToMe),
     iOwe: rows({ to: "", amount: "", currency: "", how: "" }, p.iOwe),
     assets: rows({ item: "", location: "", holder: "" }, p.assets),
+    accounts: rows({ name: "", login: "", action: "", note: "" }, p.accounts),
     wishes: str(p.wishes),
+    letter: str(p.letter),
     ...(h ? { handover: h } : {}),
   };
 }
@@ -158,7 +168,9 @@ export function familyCopy(p: Plan): Plan {
     owedToMe: n.owedToMe,
     iOwe: n.iOwe,
     assets: n.assets,
+    accounts: n.accounts,
     wishes: n.wishes,
+    letter: n.letter,
   };
 }
 
@@ -173,7 +185,9 @@ export function completion(p: Plan): number {
     p.insurance.some((i) => i.company),
     p.owedToMe.length + p.iOwe.length > 0,
     p.assets.some((a) => a.item),
+    p.accounts.some((a) => a.name),
     p.wishes.trim().length > 0,
+    p.letter.trim().length > 0,
   ];
   return Math.round((checks.filter(Boolean).length / checks.length) * 100);
 }

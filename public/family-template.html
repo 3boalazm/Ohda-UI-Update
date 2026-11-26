@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-fb+Wr/oyPL04ZfbkAq5T4ydf9+3qVsjhiTu6LOcAVEI='; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-0Y4/Lbuze3o8o1Fli3AsGAHKlwL5GURwaEc0Zy9XfJk='; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
 <title>ملف عُهدة — للأهل</title>
 <style>
 :root{--ink:#14213d;--muted:#5b6475;--line:#d9dee7;--bg:#f6f4ef;--card:#fff;--brand:#0f5c4d;--accent:#c8913a;--bad:#a4262c}
@@ -116,6 +116,7 @@ function render(p){
   h+="<div class='card'><h2>ملف "+esc(o.name||"")+"</h2><div class='muted'>آخر تحديث: "+esc((p.updated||"").slice(0,10))+"</div>"+
      "<p class='notice'>الملف ده دليل عملي كتبه صاحبه عشان يساعدكم تبدأوا. مش وصية شرعية ولا مستند قانوني، ومش بيدّي حد صلاحية على أي حساب. تأكدوا من أي إجراء من الجهة الرسمية.</p>"+
      "<button class='secondary noprint' id='printBtn' type='button'>اطبع الملف</button></div>";
+  if(p.letter)h+=card("رسالة ليكم","<div class='steps'>"+esc(p.letter)+"</div>");
   if(p.firstSteps)h+=card("ابدأوا من هنا","<div class='steps'>"+esc(p.firstSteps)+"</div>");
   h+=card("مين تكلموا الأول",table(p.contacts,[["name","الاسم"],["relation","الصلة"],["phone","الرقم"],["note","ليه"]]));
   h+=card("بياناته الأساسية",kv(o,[["name","الاسم"],["phone","الموبايل"],["city","المدينة"],["notes","ملاحظات"]]));
@@ -125,6 +126,7 @@ function render(p){
   h+=card("فلوس ليه عند ناس",table(p.owedToMe,[["who","مين"],["amount","المبلغ"],["currency","العملة"],["proof","الإثبات فين"]]));
   h+=card("فلوس عليه لناس",table(p.iOwe,[["to","لمين"],["amount","المبلغ"],["currency","العملة"],["how","إزاي تتدفع"]]));
   h+=card("الأملاك والأوراق",table(p.assets,[["item","الحاجة"],["location","مكانها"],["holder","مع مين"]]));
+  h+=card("حساباته على النت",table(p.accounts,[["name","الخدمة"],["login","مسجّل بإيه"],["action","المطلوب"],["note","ملاحظة"]]));
   if(p.wishes)h+=card("رغبات (غير ملزمة)","<div class='steps'>"+esc(p.wishes)+"</div>");
   h+=card("جهات ممكن تساعدكم","<ul>"+
     "<li>لو كان شغّال في السعودية: جهة العمل المكتوبة فوق، ومكتب التمثيل العمالي المصري التابع للسفارة أو القنصلية المصرية في السعودية لمتابعة المستحقات.</li>"+

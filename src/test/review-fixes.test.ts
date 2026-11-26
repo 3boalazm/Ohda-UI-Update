@@ -189,12 +189,14 @@ describe("familyCopy is an allowlist", () => {
     expect(JSON.stringify(f)).not.toContain("SECRET");
     expect(Object.keys(f).sort()).toEqual(
       [
+        "accounts",
         "assets",
         "banks",
         "contacts",
         "firstSteps",
         "iOwe",
         "insurance",
+        "letter",
         "owedToMe",
         "owner",
         "updated",

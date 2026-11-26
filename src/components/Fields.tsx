@@ -1,12 +1,14 @@
 import { useVault } from "@/lib/vault";
 import { Link } from "@tanstack/react-router";
-import { MAX_TEXT, sensitiveWarnings } from "@/lib/plan";
+import { MAX_TEXT, SECRET_WARNING, sensitiveWarnings } from "@/lib/plan";
 
 const MAX_FIELD = 500;
 
-export function Warn({ text, check }: { text: string; check?: boolean | undefined }) {
+/** `check: "secret"` warns about passwords/codes only (fields where long numbers are normal). */
+export function Warn({ text, check }: { text: string; check?: boolean | "secret" | undefined }) {
   if (!check || !text) return null;
-  const w = sensitiveWarnings(text);
+  const all = sensitiveWarnings(text);
+  const w = check === "secret" ? all.filter((m) => m === SECRET_WARNING) : all;
   return w.length ? (
     <div className="mt-1 space-y-1">
       {w.map((m) => (
@@ -30,7 +32,7 @@ export function Field({
   value: string;
   onChange: (v: string) => void;
   placeholder?: string | undefined;
-  sensitive?: boolean | undefined;
+  sensitive?: boolean | "secret" | undefined;
   dirLtr?: boolean;
 }) {
   return (

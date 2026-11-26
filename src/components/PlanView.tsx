@@ -93,6 +93,11 @@ export function PlanView({ plan: p, nested }: { plan: Plan; nested?: boolean }) 
           اطبع الملف
         </button>
       </Section>
+      {p.letter && (
+        <Section title="رسالة ليكم">
+          <Steps t={p.letter} />
+        </Section>
+      )}
       {p.firstSteps && (
         <Section title="ابدأوا من هنا">
           <Steps t={p.firstSteps} />
@@ -195,6 +200,18 @@ export function PlanView({ plan: p, nested }: { plan: Plan; nested?: boolean }) 
             ["item", "الحاجة"],
             ["location", "مكانها"],
             ["holder", "مع مين"],
+          ],
+        }),
+      )}
+      {S(
+        "حساباته على النت",
+        Table({
+          rows: R(p.accounts),
+          cols: [
+            ["name", "الخدمة"],
+            ["login", "مسجّل بإيه"],
+            ["action", "المطلوب"],
+            ["note", "ملاحظة"],
           ],
         }),
       )}

@@ -71,22 +71,33 @@
     U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+/* Thin numerals for the big figures (Latin subset only: digits). */
+@font-face {
+  font-family: "IBM Plex Sans Arabic";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200;
+  src: url("../node_modules/@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-latin-200-normal.woff2")
+    format("woff2");
+  unicode-range: U+0020-007E;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Ohda design tokens ("sealed family dossier"): deep green = trust/primary action, gold = the seal
- * (what is missing or important), warm paper + ink for reading. One filled primary button per
- * screen, status shown as chips, at most one callout per screen.
+ * Ohda design tokens, v2 ("an app, not a form"): a soft grey ground with white, very round,
+ * borderless surfaces; one green "colour screen" per page; an ink panel/pill for the main action;
+ * gold as the only warm accent; big thin numerals. No accent rails, no hairline card borders.
  */
 @theme inline {
   --font-sans:
     "IBM Plex Sans Arabic", "Segoe UI", Tahoma, "Noto Naskh Arabic", "Geeza Pro", Arial, sans-serif;
   --font-mono: Consolas, "Courier New", monospace;
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 4px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 6px);
+  --radius-2xl: calc(var(--radius) + 12px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -112,35 +123,41 @@
   --color-gold-light: var(--gold-light);
   --color-gold-soft: var(--gold-soft);
   --color-mint: var(--mint);
+  --color-ink: var(--ink);
+  --color-ink-foreground: var(--ink-foreground);
+  --shadow-float: 0 18px 40px -18px rgb(16 28 25 / 0.35);
+  --ease-spring: cubic-bezier(0.2, 0.9, 0.3, 1.25);
 }
 
 :root {
-  --radius: 0.625rem; /* 10px controls; cards use rounded-2xl (16px) */
-  --background: #f6f4ef; /* paper */
-  --foreground: #14213d; /* ink */
+  --radius: 1rem; /* 16px controls; surfaces use rounded-[28px] */
+  --background: #e9e8e4; /* soft grey ground */
+  --foreground: #101c19; /* green-tinted ink */
   --card: #ffffff;
-  --card-foreground: #14213d;
+  --card-foreground: #101c19;
   --popover: #ffffff;
-  --popover-foreground: #14213d;
-  --primary: #0f5c4d; /* deep green */
-  --primary-strong: #0b4a3e; /* hover / pressed */
-  --primary-foreground: #ffffff;
-  --secondary: #e9f3ef; /* green tint: done, hover */
+  --popover-foreground: #101c19;
+  --primary: #0f5c4d; /* Ohda green: colour screens, links, done */
+  --primary-strong: #0b4a3e;
+  --primary-foreground: #f3f7f5;
+  --secondary: #dcebe5; /* green tint */
   --secondary-foreground: #0f5c4d;
-  --muted: #efece5;
-  --muted-foreground: #5b6270; /* hints: 5.9:1 on paper */
-  --accent: #c8913a;
-  --accent-foreground: #14213d;
-  --gold: #c8913a; /* seal: fills, icons, progress */
-  --gold-ink: #8a5e17; /* gold text on light: 5.2:1 */
-  --gold-light: #f0d9a8; /* gold text on green: 6.4:1 */
-  --gold-soft: #fbf3e4; /* callout background */
-  --mint: #eef6f3;
+  --muted: #f1f0ec; /* quiet surface inside white */
+  --muted-foreground: #5a635f; /* 5.4:1 on the ground, 6.4:1 on white */
+  --accent: #dc9a2a;
+  --accent-foreground: #1b1405;
+  --gold: #dc9a2a; /* the one warm accent */
+  --gold-ink: #7a5410; /* gold text on light: 5.6:1 on gold-soft */
+  --gold-light: #f6d999; /* gold text on green */
+  --gold-soft: #f6e6c6;
+  --mint: #e3eee9;
+  --ink: #111a18; /* dark panel and the main pill button */
+  --ink-foreground: #eef2f0;
   --destructive: #a4262c;
   --destructive-foreground: #ffffff;
-  --border: #e4e1d9; /* warm line */
-  --input: #d9d5cb;
-  --ring: #c8913a;
+  --border: #dddbd5;
+  --input: #cfcdc6;
+  --ring: #dc9a2a;
 }
 
 @layer base {
@@ -160,7 +177,7 @@
   h1,
   h2,
   h3 {
-    line-height: 1.4;
+    line-height: 1.35;
     text-wrap: balance;
   }
   /* One visible focus style for every interactive element (keyboard users). */
@@ -182,46 +199,59 @@
     *::before,
     *::after {
       animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
       transition-duration: 0.01ms !important;
+      transition-delay: 0ms !important;
       scroll-behavior: auto !important;
     }
   }
 }
 
-/* ---------- buttons: 48px tall (40px small); one filled primary per screen ---------- */
+/* ---------- buttons: pills, 48px tall (40px small); one ink primary per screen ---------- */
 @utility btn {
-  @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 text-base font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45 aria-disabled:cursor-not-allowed aria-disabled:opacity-45;
+  @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-base font-semibold transition-[background-color,transform] duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 aria-disabled:cursor-not-allowed aria-disabled:opacity-40;
 }
 @utility btn-primary {
-  @apply btn bg-primary text-primary-foreground hover:bg-primary-strong;
+  @apply btn bg-ink text-ink-foreground hover:bg-primary-strong;
 }
 @utility btn-gold {
-  @apply btn bg-gold text-foreground hover:bg-gold/90;
+  @apply btn bg-gold text-accent-foreground hover:bg-gold/90;
 }
 @utility btn-outline {
-  @apply btn border-[1.5px] border-primary bg-card text-primary hover:bg-secondary;
+  @apply btn bg-card text-foreground shadow-[inset_0_0_0_1.5px_var(--border)] hover:bg-secondary;
 }
 @utility btn-ghost {
-  @apply btn text-primary hover:bg-secondary;
+  @apply btn text-foreground hover:bg-foreground/5;
 }
 @utility btn-danger {
-  @apply btn border-[1.5px] border-destructive bg-card text-destructive hover:bg-destructive/5;
+  @apply btn bg-card text-destructive shadow-[inset_0_0_0_1.5px_var(--destructive)] hover:bg-destructive/5;
 }
 @utility btn-sm {
-  @apply min-h-10 px-3.5 text-sm;
+  @apply min-h-10 px-4 text-sm;
 }
-/* a button that only shows an icon/short glyph (menus, close) */
+/* a round button that only shows an icon */
 @utility btn-icon {
-  @apply btn min-h-10 min-w-10 border border-border bg-card px-0 text-foreground hover:bg-secondary;
+  @apply inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-card text-foreground shadow-[0_6px_14px_-8px_rgb(16_28_25/0.35)] transition-transform duration-150 hover:bg-secondary active:scale-95;
 }
 
-/* ---------- surfaces ---------- */
+/* ---------- surfaces: white, very round, no borders ---------- */
 @utility panel {
-  @apply rounded-2xl border border-border bg-card p-5 sm:p-6;
+  @apply rounded-[28px] bg-card p-5 sm:p-6;
 }
 /* a quieter group inside a panel (list rows, sub-steps) */
 @utility subpanel {
-  @apply rounded-xl border border-border bg-background p-4;
+  @apply rounded-[20px] bg-muted p-4;
+}
+/* the one green block of a page */
+@utility color-screen {
+  @apply relative overflow-hidden rounded-[32px] bg-primary p-5 text-primary-foreground sm:p-6;
+}
+/* big thin figures (digits only) */
+@utility num {
+  @apply font-extralight tabular-nums;
+  direction: ltr;
+  letter-spacing: -0.03em;
+  line-height: 0.85;
 }
 
 /* ---------- forms ---------- */
@@ -232,7 +262,7 @@
   @apply mt-1.5 block text-sm text-muted-foreground;
 }
 @utility field {
-  @apply min-h-12 w-full rounded-lg border-[1.5px] border-input bg-card px-3.5 py-2.5 text-base outline-none placeholder:text-muted-foreground/70 focus:border-primary focus:ring-[3px] focus:ring-primary/20;
+  @apply min-h-12 w-full rounded-2xl border-[1.5px] border-input bg-card px-4 py-2.5 text-base outline-none placeholder:text-muted-foreground/70 focus:border-primary focus:ring-[3px] focus:ring-primary/20;
 }
 @utility code-input {
   @apply field text-center font-mono tracking-wider;
@@ -246,10 +276,10 @@
 
 /* ---------- messages: at most one callout per screen ---------- */
 @utility warn {
-  @apply rounded-lg border-s-4 border-gold bg-gold-soft px-3.5 py-2.5 text-sm;
+  @apply rounded-2xl bg-gold-soft px-4 py-3 text-sm;
 }
 @utility notice {
-  @apply rounded-lg border-s-4 border-primary bg-mint px-4 py-3 text-[0.9375rem];
+  @apply rounded-2xl bg-mint px-4 py-3 text-[0.9375rem];
 }
 @utility err-text {
   @apply text-sm font-semibold text-destructive;
@@ -264,7 +294,7 @@
 
 /* ---------- status chips ---------- */
 @utility chip {
-  @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[0.8125rem] leading-6 font-semibold whitespace-nowrap;
+  @apply inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-[0.8125rem] leading-6 font-semibold whitespace-nowrap;
 }
 @utility chip-done {
   @apply chip bg-secondary text-primary;
@@ -273,7 +303,32 @@
   @apply chip bg-gold-soft text-gold-ink;
 }
 @utility chip-neutral {
-  @apply chip border border-border bg-card text-muted-foreground;
+  @apply chip bg-muted text-muted-foreground;
+}
+
+/* ---------- motion ---------- */
+@keyframes ohda-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+}
+@keyframes ohda-bump {
+  40% {
+    transform: scale(1.05);
+  }
+}
+@utility anim-rise {
+  animation: ohda-rise 0.45s var(--ease-spring) backwards;
+}
+@utility anim-bump {
+  animation: ohda-bump 0.5s var(--ease-spring);
+}
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @media print {

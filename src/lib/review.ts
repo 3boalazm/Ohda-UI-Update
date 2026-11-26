@@ -1,5 +1,5 @@
 import type { Plan } from "@/lib/plan";
-import { familyCopy, sensitiveWarnings } from "@/lib/plan";
+import { SECRET_WARNING, familyCopy, sensitiveWarnings } from "@/lib/plan";
 
 /** Editor sections, in the order the owner sees them. */
 export type SectionKey =
@@ -12,7 +12,9 @@ export type SectionKey =
   | "owedToMe"
   | "iOwe"
   | "assets"
-  | "wishes";
+  | "accounts"
+  | "wishes"
+  | "letter";
 
 /** Display order of the sections. */
 export const SECTION_ORDER: SectionKey[] = [
@@ -25,7 +27,9 @@ export const SECTION_ORDER: SectionKey[] = [
   "owedToMe",
   "iOwe",
   "assets",
+  "accounts",
   "wishes",
+  "letter",
 ];
 
 /** Arabic section titles. */
@@ -39,7 +43,9 @@ export const SECTION_LABELS: Record<SectionKey, string> = {
   owedToMe: "فلوس ليك عند ناس",
   iOwe: "فلوس عليك لناس",
   assets: "الأملاك والأوراق",
+  accounts: "حساباتك على النت",
   wishes: "رغبات غير ملزمة",
+  letter: "رسالة لأهلك",
 };
 
 /** What a family needs most. */
@@ -57,7 +63,9 @@ export function sectionDone(p: Plan): Record<SectionKey, boolean> {
     owedToMe: p.owedToMe.length > 0,
     iOwe: p.iOwe.length > 0,
     assets: p.assets.some((a) => !!a.item),
+    accounts: p.accounts.some((a) => !!a.name),
     wishes: p.wishes.trim().length > 0,
+    letter: p.letter.trim().length > 0,
   };
 }
 
@@ -68,7 +76,9 @@ export function missingKeySections(p: Plan): SectionKey[] {
 }
 
 /** The sections whose fields the editor marks sensitive (bank and insurance rows). Phone numbers elsewhere are long digit runs on purpose, so they are not checked. */
-export const SENSITIVE_SECTIONS: SectionKey[] = ["banks", "insurance"];
+export const SENSITIVE_SECTIONS: SectionKey[] = ["banks", "insurance", "accounts"];
+/** Sections where long numbers are expected (a phone number as a login): only secrets count. */
+const SECRET_ONLY_SECTIONS: SectionKey[] = ["accounts"];
 
 /** One section that contains text the family file should not carry. */
 export type SensitiveFinding = { section: SectionKey; label: string; warnings: string[] };
@@ -87,7 +97,9 @@ export function sensitiveFindings(p: Plan): SensitiveFinding[] {
     const found = new Set<string>();
     for (const row of rows) {
       for (const field of Object.values(row)) {
-        if (typeof field === "string") for (const w of sensitiveWarnings(field)) found.add(w);
+        if (typeof field !== "string") continue;
+        for (const w of sensitiveWarnings(field))
+          if (w === SECRET_WARNING || !SECRET_ONLY_SECTIONS.includes(section)) found.add(w);
       }
     }
     if (found.size > 0) out.push({ section, label: SECTION_LABELS[section], warnings: [...found] });

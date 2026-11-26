@@ -36,9 +36,11 @@ function check(cond, msg) {
   await a.click('button:has-text("اعمل ملفي")');
   await a.waitForURL("**/file", { timeout: 60000 });
   await a.waitForSelector("text=اكتمال الملف");
+  await a.click('[data-section="owner"]'); // home screen: open the first section
   await a.locator("input.field").first().fill("Journey Name");
   await a.waitForSelector("text=اتحفظ مشفّر على جهازك");
   await a.waitForTimeout(2000);
+  await a.click('[data-nav="home"]');
 
   // backup download works
   const [dl] = await Promise.all([
@@ -54,6 +56,7 @@ function check(cond, msg) {
   await a.click('button:has-text("افتح")');
   await a.waitForURL("**/file", { timeout: 60000 });
   await a.waitForSelector("text=اكتمال الملف");
+  await a.click('[data-section="owner"]'); // home screen: open the first section
   check(
     (await a.locator("input.field").first().inputValue()) === "Journey Name",
     "edit persisted across lock/reopen",
@@ -68,6 +71,7 @@ function check(cond, msg) {
   await c.click('button:has-text("افتح")');
   await c.waitForURL("**/file", { timeout: 60000 });
   await c.waitForSelector("text=اكتمال الملف");
+  await c.click('[data-section="owner"]'); // home screen: open the first section
   check(
     (await c.locator("input.field").first().inputValue()) === "Edited in tab A",
     "tab B sees tab A's unsaved edit (A saved before handing over)",
@@ -80,6 +84,7 @@ function check(cond, msg) {
     localStorage.setItem("ohda-activation", JSON.stringify({ plan: "family" })),
   );
   await c.evaluate(() => localStorage.setItem("ohda-entitlement", "eyJ2IjoxfQ.forged"));
+  await c.click('[data-nav="home"]');
   await c.click('a:has-text("سلّم أهلك")');
   await c.waitForURL("**/handover");
   await c.waitForTimeout(800);
