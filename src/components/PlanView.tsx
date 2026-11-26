@@ -1,10 +1,23 @@
 import type { Plan } from "@/lib/plan";
 
 type Col = [string, string];
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+  main,
+}: {
+  title: string;
+  children: React.ReactNode;
+  /** the file's own title: the page's h1 */
+  main?: boolean;
+}) {
   return (
     <section className="panel my-3 break-inside-avoid">
-      <h2 className="mb-2 text-lg font-bold text-primary">{title}</h2>
+      {main ? (
+        <h1 className="mb-2 text-2xl font-bold text-primary">{title}</h1>
+      ) : (
+        <h2 className="mb-2 text-lg font-bold text-primary">{title}</h2>
+      )}
       {children}
     </section>
   );
@@ -64,13 +77,14 @@ const Steps = ({ t }: { t: string }) => (
 export const DISCLAIMER =
   "الملف ده دليل عملي كتبه صاحبه عشان يساعدكم تبدأوا. مش وصية شرعية ولا مستند قانوني، ومش بيدّي حد صلاحية على أي حساب. تأكدوا من أي إجراء من الجهة الرسمية.";
 
-export function PlanView({ plan: p }: { plan: Plan }) {
+/** `nested`: shown inside a page that already has its own h1 (the owner's preview). */
+export function PlanView({ plan: p, nested }: { plan: Plan; nested?: boolean }) {
   const o = p.owner as unknown as Record<string, string>;
   const w = p.work as unknown as Record<string, string>;
   const R = (x: unknown) => x as Record<string, string>[];
   return (
     <div>
-      <Section title={`ملف ${p.owner.name || ""}`}>
+      <Section main={!nested} title={`ملف ${p.owner.name || ""}`}>
         <div className="text-sm text-muted-foreground">
           آخر تحديث: {(p.updated || "").slice(0, 10)}
         </div>

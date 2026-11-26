@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Page, meta } from "@/components/Brand";
+import { FilePicker, PasswordInput, StrengthMeter } from "@/components/Kit";
 import {
   makePassWrap,
   newDataKey,
@@ -140,17 +141,18 @@ function Start() {
 
       {!imported && (
         <div className="panel mt-6">
-          <h2 className="font-bold">عندي نسخة احتياطية</h2>
+          <h2 className="text-lg font-bold">عندي نسخة احتياطية</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             ارفع ملف ‎.ohda‎ اللي نزّلته قبل كده، وافتحه بكلمة السر.
             {env ? " ده هيستبدل الملف الحالي على الجهاز بعد ما تفتحه." : ""}
           </p>
-          <input
-            type="file"
-            accept=".ohda,application/json"
-            className="mt-3 block w-full text-sm"
-            onChange={(e) => e.target.files?.[0] && onImport(e.target.files[0])}
-          />
+          <div className="mt-3">
+            <FilePicker
+              label="اختار ملف النسخة الاحتياطية"
+              accept=".ohda,application/json"
+              onFile={(f) => void onImport(f)}
+            />
+          </div>
           {err && (
             <p role="alert" className="err-text mt-2">
               {err}
@@ -220,17 +222,17 @@ function Unlock({
         void run(false);
       }}
     >
-      <h1 className="text-2xl font-bold">{isImport ? "افتح النسخة الاحتياطية" : "افتح ملفك"}</h1>
+      <h1 className="text-[1.75rem] font-bold">
+        {isImport ? "افتح النسخة الاحتياطية" : "افتح ملفك"}
+      </h1>
       <p className="mt-1 text-muted-foreground">الملف متشفّر على الجهاز ده. اكتب كلمة السر.</p>
       <label className="field-label mt-4" htmlFor="pw">
         كلمة السر
       </label>
-      <input
+      <PasswordInput
         id="pw"
-        type="password"
-        className="field"
         value={pass}
-        onChange={(e) => setPass(e.target.value)}
+        onChange={setPass}
         autoComplete="current-password"
         autoFocus
       />
@@ -240,10 +242,10 @@ function Unlock({
         </p>
       )}
       {replaces && (
-        <label className="warn mt-3 flex items-start gap-2 text-sm">
+        <label className="warn mt-3 flex items-start gap-3 text-sm">
           <input
             type="checkbox"
-            className="mt-1"
+            className="mt-0.5"
             checked={confirmReplace}
             onChange={(e) => setConfirmReplace(e.target.checked)}
           />
@@ -314,6 +316,9 @@ function Create({
     return r.ok ? null : r.message;
   };
   const problem = p1 ? check(p1) : null;
+  // UI only: the same rules as `check`, shown as a 0-4 bar
+  const strength = p1 && assess && !passphraseProblem(p1) ? assess(p1) : null;
+  const level = (!p1 ? 0 : !strength ? 1 : Math.max(1, strength.score)) as 0 | 1 | 2 | 3 | 4;
   return (
     <form
       className="panel"
@@ -355,50 +360,50 @@ function Create({
         }
       }}
     >
-      <h1 className="text-2xl font-bold">ابدأ ملفك</h1>
+      <h1 className="text-[1.75rem] font-bold">ابدأ ملفك</h1>
       <p className="mt-1 text-muted-foreground">
         اختار كلمة سر طويلة — جملة قصيرة تفتكرها أحسن من كلمة معقدة. هي اللي بتشفّر ملفك على جهازك.
       </p>
       <label className="field-label mt-4" htmlFor="p1">
         كلمة السر (12 حرف على الأقل)
       </label>
-      <input
+      <PasswordInput
         id="p1"
-        type="password"
-        className="field"
         value={p1}
-        onChange={(e) => setP1(e.target.value)}
+        onChange={setP1}
         autoComplete="new-password"
+        describedBy="p1-hint"
       />
-      <p className="mt-1 text-sm text-muted-foreground" aria-live="polite">
-        {problem ?? (p1 && assess ? "كلمة السر كويسة." : "")}
+      <StrengthMeter level={level} />
+      <p id="p1-hint" className="field-hint" aria-live="polite">
+        {problem ??
+          (p1 && strength
+            ? strength.message
+            : "مثلًا: 4 كلمات مش مرتبطة ببعض، بالعربي أو بالإنجليزي.")}
       </p>
       <label className="field-label mt-4" htmlFor="p2">
         اكتبها تاني
       </label>
-      <input
-        id="p2"
-        type="password"
-        className="field"
-        value={p2}
-        onChange={(e) => setP2(e.target.value)}
-        autoComplete="new-password"
-      />
-      <label className="mt-4 flex items-start gap-2 text-sm">
+      <PasswordInput id="p2" value={p2} onChange={setP2} autoComplete="new-password" />
+      {p2 && p1 !== p2 && <p className="field-hint">لسه مش زي الأولى.</p>}
+      <div className="mt-5 flex items-start gap-3 rounded-lg bg-gold-soft p-3.5">
         <input
+          id="ack"
           type="checkbox"
-          className="mt-1.5 h-4 w-4 accent-[var(--primary)]"
+          className="mt-1"
           checked={ok}
           onChange={(e) => setOk(e.target.checked)}
         />
-        <span>فاهم إن لو نسيت كلمة السر محدش يقدر يرجّع الملف، ولا حتى عُهدة.</span>
-      </label>
+        <label htmlFor="ack" className="text-[0.9375rem]">
+          فاهم إن لو نسيت كلمة السر محدش يقدر يرجّع الملف، ولا حتى عُهدة.
+        </label>
+      </div>
       {err && (
         <p role="alert" className="err-text mt-3">
           {err}
         </p>
       )}
-      <button className="btn-primary mt-4 w-full" disabled={busy}>
+      <button className="btn-primary mt-5 w-full" disabled={busy}>
         {busy ? "بيجهّز الملف…" : "اعمل ملفي"}
       </button>
     </form>

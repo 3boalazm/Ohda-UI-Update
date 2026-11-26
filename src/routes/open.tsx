@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Page, meta } from "@/components/Brand";
+import { FilePicker } from "@/components/Kit";
 import { PlanView } from "@/components/PlanView";
 import { unlockWithCodes, validateEnvelope, type OhdaEnvelope } from "@/lib/ohdaCrypto";
 import {
@@ -22,7 +23,7 @@ export const Route = createFileRoute("/open")({
 });
 
 const FAMILY_FILE_NAME = "ملف-عهدة-للأهل.html";
-const CODE_PLACEHOLDER = "XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX";
+const CODE_PLACEHOLDER = "XXXX-XXXX-XXXX-…";
 
 function OpenPage() {
   const [env, setEnv] = useState<OhdaEnvelope | null>(null);
@@ -31,8 +32,6 @@ function OpenPage() {
   const [err, setErr] = useState("");
   const [plan, setPlan] = useState<Plan | null>(null);
   const [busy, setBusy] = useState(false);
-  // UI only: name of the chosen file, shown next to the picker.
-  const [fileName, setFileName] = useState("");
   const split = env ? getCodeWrap(env)?.mode === "split2" : false;
 
   async function onFile(f: File) {
@@ -72,7 +71,7 @@ function OpenPage() {
 
   return (
     <Page narrow>
-      <h1 className="text-2xl font-bold">افتح ملف أهلك</h1>
+      <h1 className="text-[1.75rem] font-bold">افتح ملف أهلك</h1>
       <p className="mt-2 text-muted-foreground">
         الفتح بيحصل على جهازك بس. الملف والكود مش بيتبعتوا لأي مكان، ولا لينا.
       </p>
@@ -89,38 +88,12 @@ function OpenPage() {
           <p className="text-sm text-muted-foreground">
             اسمه غالبًا «<bdi dir="ltr">{FAMILY_FILE_NAME}</bdi>».
           </p>
-          <label className="btn-outline w-full cursor-pointer focus-within:ring-2 focus-within:ring-primary/40 sm:w-auto">
-            <input
-              type="file"
-              accept=".html,.htm,.ohda,application/json,text/html"
-              className="sr-only"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) {
-                  setFileName(f.name);
-                  onFile(f);
-                }
-              }}
-            />
-            اختار ملف العيلة
-          </label>
-          <p className="text-sm" aria-live="polite">
-            {fileName ? (
-              <>
-                الملف المختار:{" "}
-                <bdi dir="ltr" className="font-semibold break-all">
-                  {fileName}
-                </bdi>
-              </>
-            ) : (
-              <span className="text-muted-foreground">لسه ما اخترتش ملف</span>
-            )}
-          </p>
-          {env && (
-            <p className="text-sm font-semibold text-primary">
-              ✓ الملف تمام. كمّل للخطوة التانية تحت.
-            </p>
-          )}
+          <FilePicker
+            label="اختار ملف العيلة"
+            accept=".html,.htm,.ohda,application/json,text/html"
+            onFile={(f) => void onFile(f)}
+          />
+          {env && <p className="chip-done">✓ الملف تمام. كمّل للخطوة التانية تحت.</p>}
           {!env && errBox}
         </section>
 
@@ -207,8 +180,8 @@ function OpenPage() {
         </h2>
         <ul className="list-disc space-y-1 ps-5">
           <li>
-            غالبًا اسمه «<bdi dir="ltr">{FAMILY_FILE_NAME}</bdi>»، واتبعتلكم على واتساب أو
-            اتحفظ على Drive.
+            غالبًا اسمه «<bdi dir="ltr">{FAMILY_FILE_NAME}</bdi>»، واتبعتلكم على واتساب أو اتحفظ على
+            Drive.
           </li>
           <li>اسألوا اللي جهّزه، أو اللي محتفظ بالكارت المطبوع.</li>
           <li>الملف لوحده مش بيتفتح من غير الكود اللي على الكارت.</li>

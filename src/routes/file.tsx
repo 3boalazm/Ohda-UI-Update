@@ -440,7 +440,7 @@ function FilePage() {
             ))}
           </div>
         )}
-        <PlanView plan={familyCopy(p)} />
+        <PlanView plan={familyCopy(p)} nested />
       </Page>
     );
   }
