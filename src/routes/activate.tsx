@@ -6,7 +6,7 @@ import { DEMO, DEMO_CODES, demoRedeem, writeDemoActivation } from "@/lib/demo";
 import { bundledPins } from "@/lib/entitlementKey";
 import { normalizeCode, randomBytes, toB64 } from "@/lib/ohdaCrypto";
 import { getActivation, storeActivation, type Activation } from "@/lib/plan";
-import { ORDER_WHATSAPP, PLAN_NAME, SELLER_LINE, priceLabel } from "@/lib/pricing";
+import { ORDER_WHATSAPP, PLAN_NAME, SELLER_LINE, priceLabel, type Market } from "@/lib/pricing";
 
 export const Route = createFileRoute("/activate")({
   head: () =>
@@ -37,6 +37,8 @@ function Activate() {
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  // UI only: which prices to show and order with
+  const [market, setMarket] = useState<Market>("EG");
   useEffect(() => {
     void getActivation().then(setAct);
   }, []);
@@ -124,50 +126,67 @@ function Activate() {
           )}
         </div>
       )}
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <div className="panel">
-          <h2 className="font-bold">فردي</h2>
-          <p className="mt-1 text-xl font-bold text-primary">{priceLabel("single", "EG")}</p>
-          <p className="text-sm font-semibold">{priceLabel("single", "INTL")} من برّه مصر</p>
-          <p className="text-sm text-muted-foreground">مرة واحدة</p>
+      <section className="mt-6 space-y-4" aria-labelledby="buy-title">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="buy-title" className="text-xl font-bold">
+            اختار الباقة
+          </h2>
+          <div
+            className="inline-flex rounded-lg border border-border bg-card p-1"
+            role="group"
+            aria-label="انت فين؟"
+          >
+            {(["EG", "INTL"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={market === m}
+                onClick={() => setMarket(m)}
+                className={`min-h-10 rounded-md px-4 text-sm font-semibold ${market === m ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-secondary"}`}
+              >
+                {m === "EG" ? "في مصر" : "برّه مصر"}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="panel border-gold">
-          <h2 className="font-bold">باقة العيلة</h2>
-          <p className="mt-1 text-xl font-bold text-primary">{priceLabel("family", "EG")}</p>
-          <p className="text-sm font-semibold">{priceLabel("family", "INTL")} من برّه مصر</p>
-          <p className="text-sm text-muted-foreground">3 أكواد — مرة واحدة</p>
-        </div>
-      </div>
-      <p className="mt-4">
-        <b>بيشمل:</b> تسليم الأهل، الكروت المطبوعة، تقسيم الكود، تجربة الفتح، وتحديثات بلا حدود.
-      </p>
-
-      <section className="panel mt-5">
-        <h2 className="font-bold">تدفع إزاي؟</h2>
-        <p className="mt-2 text-muted-foreground">
-          في الفترة التجريبية بنرد ونبعتلك طريقة الدفع وكود التفعيل يدويًا في خلال ساعات.
-        </p>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          {(["single", "family"] as const).flatMap((p) =>
-            (["EG", "INTL"] as const).map((m) => (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {(["single", "family"] as const).map((p) => (
+            <div
+              key={p}
+              className={`flex flex-col gap-3 rounded-2xl border bg-card p-5 ${p === "family" ? "border-gold" : "border-border"}`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-lg font-bold">{PLAN_NAME[p]}</h3>
+                {p === "family" && <span className="chip-todo">3 أكواد</span>}
+              </div>
+              <p>
+                <span className="text-3xl font-bold text-primary">{priceLabel(p, market)}</span>{" "}
+                <span className="text-sm text-muted-foreground">مرة واحدة</span>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {p === "family" ? "ليك ولاتنين من عيلتك." : "لملف واحد."} بيشمل تسليم الأهل، الكروت
+                المطبوعة، تقسيم الكود، تجربة الفتح، وتحديثات بلا حدود.
+              </p>
               <a
-                key={p + m}
-                className={p === "single" ? "btn-primary btn-sm" : "btn-outline btn-sm"}
+                className={`${p === "single" ? "btn-primary" : "btn-outline"} mt-auto`}
                 target="_blank"
                 rel="noreferrer"
-                href={wa(PLAN_NAME[p], m === "EG" ? "مصر" : "برّه مصر", priceLabel(p, m))}
+                href={wa(PLAN_NAME[p], market === "EG" ? "مصر" : "برّه مصر", priceLabel(p, market))}
               >
-                {PLAN_NAME[p]} — {m === "EG" ? "من مصر" : "من برّه مصر"} ({priceLabel(p, m)})
+                اطلب على واتساب
               </a>
-            )),
-          )}
+            </div>
+          ))}
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">{SELLER_LINE}</p>
+        <p className="text-sm text-muted-foreground">
+          في الفترة التجريبية بنرد ونبعتلك طريقة الدفع وكود التفعيل يدويًا في خلال ساعات.
+        </p>
+        <p className="text-xs text-muted-foreground">{SELLER_LINE}</p>
       </section>
 
-      <form className="panel mt-5" onSubmit={redeem}>
+      <form className="panel mt-6" onSubmit={redeem}>
         <label className="block">
-          <span className="field-label">عندك كود تفعيل؟</span>
+          <span className="field-label text-lg">عندك كود تفعيل؟</span>
           <input
             className="code-input"
             value={code}

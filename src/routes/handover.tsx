@@ -2,6 +2,7 @@ import { PLAN_NAME, priceLabel } from "@/lib/pricing";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Page, meta, LogoMark } from "@/components/Brand";
+import { CodeText, StepItem, type StepState } from "@/components/Kit";
 import { NeedUnlock } from "@/components/Fields";
 import { makeCodeWrap, newDataKey, normalizeCode, sealContent } from "@/lib/ohdaCrypto";
 import { issueFamilyCards, sealFamilyFile } from "@/lib/family";
@@ -59,32 +60,40 @@ function Handover() {
         <NeedUnlock />
       </Page>
     );
-  return <Flow />;
+  return <Flow act={act} />;
 }
 
 function NotActivated() {
   return (
-    <div className="panel">
-      <h1 className="text-2xl font-bold">سلّم أهلك</h1>
-      <p className="mt-2 text-muted-foreground">
-        التسليم محتاج تفعيل مرة واحدة. بعده تقدر تعيد تصدير الملف لأهلك في أي وقت بعد أي تعديل.
-      </p>
-      <ul className="mt-4 list-disc space-y-1 pr-5">
-        <li>ملف للأهل مشفّر، بيفتح من غير الموقع</li>
-        <li>كروت مطبوعة بالكود</li>
-        <li>تقسيم الكود على شخصين</li>
-        <li>تجربة الفتح بملف تجريبي</li>
-        <li>تحديثات بلا حدود</li>
+    <div className="panel space-y-5">
+      <div>
+        <p className="eyebrow">خطوة أخيرة قبل التسليم</p>
+        <h1 className="mt-1 text-2xl font-bold">سلّم أهلك</h1>
+        <p className="mt-2 text-muted-foreground">
+          التسليم محتاج تفعيل مرة واحدة. بعده تقدر تعيد تصدير الملف لأهلك في أي وقت بعد أي تعديل.
+        </p>
+      </div>
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {[
+          "ملف للأهل مشفّر، بيفتح من غير الموقع",
+          "كروت مطبوعة بالكود",
+          "تقسيم الكود على شخصين",
+          "تجربة الفتح بملف تجريبي",
+          "تحديثات بلا حدود",
+        ].map((t) => (
+          <li key={t} className="flex items-start gap-2">
+            <span aria-hidden="true" className="mt-0.5 font-bold text-primary">
+              ✓
+            </span>
+            <span>{t}</span>
+          </li>
+        ))}
       </ul>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         {(["single", "family"] as const).map((plan) => (
           <div
             key={plan}
-            className={
-              plan === "family"
-                ? "rounded-2xl border border-gold bg-card p-4"
-                : "rounded-2xl border border-border bg-card p-4"
-            }
+            className={`rounded-2xl border bg-card p-4 ${plan === "family" ? "border-gold" : "border-border"}`}
           >
             <h2 className="font-bold">{PLAN_NAME[plan]}</h2>
             <p className="mt-1 text-xl font-bold text-primary">{priceLabel(plan, "EG")}</p>
@@ -95,14 +104,14 @@ function NotActivated() {
           </div>
         ))}
       </div>
-      <Link to="/activate" className="btn-primary mt-4">
+      <Link to="/activate" className="btn-primary w-full sm:w-auto">
         فعّل دلوقتي
       </Link>
     </div>
   );
 }
 
-function Flow() {
+function Flow({ act }: { act: Activation }) {
   const v = useVault();
   const s = v.session!;
   const existing = s.plan.handover?.codeWrap;
@@ -131,6 +140,10 @@ function Flow() {
   const findings = sensitiveFindings(s.plan);
   const missing = missingKeySections(s.plan);
   const needsReview = findings.length > 0 && !reviewed;
+  // UI only: step 1 collapses once names are in; step 3 remembers a download in this visit.
+  const holdersDone = !!existing || (!!holders[0]?.trim() && (!split || !!holders[1]?.trim()));
+  const [editHolders, setEditHolders] = useState(!holdersDone);
+  const [downloaded, setDownloaded] = useState(false);
 
   async function prepare() {
     setBusy(true);
@@ -181,6 +194,7 @@ function Flow() {
     if (!plan.handover?.codeWrap) return;
     const env = await sealFamilyFile(plan);
     downloadBlob(await buildFamilyHtml(env), "ملف-عهدة-للأهل.html", "text/html");
+    setDownloaded(true);
   }
 
   async function makeDemo() {
@@ -230,12 +244,9 @@ function Flow() {
                 مع: <b>{holders[i]}</b>
               </p>
             )}
-            <p
-              className="mt-4 break-all rounded-xl bg-muted p-4 text-center font-mono text-2xl font-bold tracking-wider"
-              dir="ltr"
-            >
-              {c}
-            </p>
+            <div className="mt-4 rounded-xl bg-muted p-4">
+              <CodeText code={c} className="text-2xl" />
+            </div>
             {list.length === 2 && (
               <p className="mt-3 font-semibold">
                 ده نص الكود — النص التاني مع ({holders[1 - i] || "الشخص التاني"})
@@ -252,280 +263,390 @@ function Flow() {
     );
   }
 
+  // what each step looks like right now (visual only; every action keeps its own guards)
+  const codeDone = !!existing && (!pending || activated);
+  const st1: StepState = holdersDone && !editHolders ? "done" : "current";
+  const st2: StepState = codeDone ? "done" : holdersDone || pending ? "current" : "upcoming";
+  const st3: StepState = downloaded ? "done" : codeDone ? "current" : "upcoming";
+  const st4: StepState = demo ? "done" : codeDone ? "current" : "upcoming";
+  const downloadBlocked = !existing
+    ? "اعمل الكود وأكّد الكروت في خطوة ٢ الأول."
+    : pending && !activated
+      ? "أكّد الكروت الجديدة في خطوة ٢ الأول."
+      : needsReview
+        ? "علّم على «راجعتها» فوق عشان تقدر تنزّل."
+        : null;
+  const modeText = (sp: boolean) => (sp ? "الكود متقسّم على شخصين" : "كود واحد مع شخص واحد");
+
   return (
     <Page narrow>
-      <h1 className="text-2xl font-bold">سلّم أهلك</h1>
-      <div className="mt-5 space-y-5">
-        <section className="panel">
-          <h2 className="font-bold text-primary">١. مين هيمسك الكود؟</h2>
-          <div className="mt-3 grid gap-2">
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                checked={!split}
-                disabled={!!existing}
-                onChange={() => setSplit(false)}
-              />{" "}
-              كود واحد مع شخص واحد
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                checked={split}
-                disabled={!!existing}
-                onChange={() => setSplit(true)}
-              />{" "}
-              الكود متقسّم على شخصين (لازم الاتنين مع بعض)
-            </label>
-          </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <label>
-              <span className="field-label">{split ? "الشخص الأول" : "اسم اللي هيمسك الكود"}</span>
-              <input
-                className="field"
-                value={holders[0] ?? ""}
-                disabled={busy}
-                onChange={(e) => setHolder(0, e.target.value)}
-              />
-            </label>
-            {split && (
-              <label>
-                <span className="field-label">الشخص التاني</span>
-                <input
-                  className="field"
-                  value={holders[1] ?? ""}
-                  disabled={busy}
-                  onChange={(e) => setHolder(1, e.target.value)}
-                />
-              </label>
-            )}
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            الأسماء بتظهر على الكارت المطبوع بس، ومحفوظة جوه ملفك المشفّر.
-          </p>
-        </section>
+      <div className="mb-6 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-[1.75rem] font-bold">سلّم أهلك</h1>
+          <span className="chip-done">✓ متفعّل · {PLAN_NAME[act.plan]}</span>
+        </div>
+        <p className="text-muted-foreground">
+          ٤ خطوات: تختار مين يمسك الكود، تطبع الكارت، تنزّل ملف الأهل وتبعته، وتجرّبوا الفتح.
+        </p>
+      </div>
 
-        <section className="panel">
-          <h2 className="font-bold text-primary">٢. الكود</h2>
-          {s.plan.handover?.reissueNeeded && !existing && !codes && (
-            <p className="warn mt-3" role="status">
-              حدّثنا طريقة حماية ملفات الأهل. اعمل كود جديد واطبع كروت جديدة وابعت ملف أهل جديد،
-              واطلب من أهلك يمسحوا الملف والكروت القديمة.
-            </p>
-          )}
-          {err && (
-            <p role="alert" className="err-text mt-3">
-              {err}
-            </p>
-          )}
-          {codes ? (
-            <div className="mt-3 space-y-3">
-              {activated ? (
-                <p className="notice font-semibold" role="status">
-                  الكروت الجديدة اتفعّلت ✓ نزّل ملف أهل جديد وابعته، واطلب من أهلك يمسحوا الملف
-                  والكروت القديمة.
-                </p>
-              ) : (
-                <p className="warn font-semibold">
-                  الكروت دي لسه مش متفعّلة. اطبعها، وبعدين أكّد تحت. لو قفلت الصفحة قبل التأكيد
-                  الكروت القديمة بتفضل هي الشغالة.
-                </p>
-              )}
-              {codes.map((c, i) => (
-                <div key={c} className="rounded-xl bg-muted p-3">
-                  {codes.length === 2 && (
-                    <p className="text-sm">
-                      النص {i === 0 ? "الأول" : "التاني"} {holders[i] && `— ${holders[i]}`}
-                    </p>
-                  )}
-                  <p className="break-all text-center font-mono text-xl font-bold" dir="ltr">
-                    {c}
-                  </p>
-                  <div className="mt-2 text-center">
-                    <Copy text={c} />
-                  </div>
-                </div>
-              ))}
-              <button className="btn-primary" onClick={() => setPrintMode("real")}>
-                اطبع الكروت
-              </button>
-              {!activated && (
-                <div className="space-y-2 rounded-xl border border-border p-3">
-                  <label className="flex items-start gap-2">
+      <ol className="panel">
+        {/* 1 — who holds the code */}
+        <StepItem
+          n={1}
+          title="مين هيمسك الكود؟"
+          state={st1}
+          summary={
+            st1 === "done" ? (
+              <>
+                {holders[0] || "من غير اسم"}
+                {split && ` و${holders[1] || "شخص تاني"}`} · {modeText(split)}
+              </>
+            ) : (
+              "الأسماء بتظهر على الكارت المطبوع بس، ومحفوظة جوه ملفك المشفّر."
+            )
+          }
+        >
+          {st1 === "done" ? (
+            <button type="button" className="btn-ghost btn-sm" onClick={() => setEditHolders(true)}>
+              عدّل
+            </button>
+          ) : (
+            <div className="space-y-4">
+              <fieldset className="grid gap-2" disabled={!!existing}>
+                <legend className="sr-only">طريقة الكود</legend>
+                {[false, true].map((sp) => (
+                  <label
+                    key={String(sp)}
+                    className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border px-3.5 py-2 ${split === sp ? "border-primary bg-secondary" : "border-border bg-card"}`}
+                  >
                     <input
-                      type="checkbox"
-                      className="mt-1.5"
-                      checked={printed}
-                      onChange={(e) => setPrinted(e.target.checked)}
+                      type="radio"
+                      name="holder-mode"
+                      checked={split === sp}
+                      onChange={() => setSplit(sp)}
                     />
                     <span>
-                      طبعت الكروت (أو كتبتها) وهي في إيد {codes.length === 2 ? "الشخصين" : "الشخص"}{" "}
-                      اللي هيمسكها.
+                      {modeText(sp)}
+                      {sp && (
+                        <span className="block text-sm text-muted-foreground">
+                          لازم الاتنين مع بعض عشان الملف يتفتح
+                        </span>
+                      )}
                     </span>
                   </label>
-                  {codes.map((_, i) => (
-                    <label key={i} className="block">
-                      <span className="field-label">
-                        للتأكد: اكتب آخر 4 حروف من{" "}
-                        {codes.length === 2
-                          ? i === 0
-                            ? "الكارت الأول"
-                            : "الكارت التاني"
-                          : "الكارت"}{" "}
-                        المطبوع
-                      </span>
-                      <input
-                        className="code-input"
-                        dir="ltr"
-                        maxLength={6}
-                        autoComplete="off"
-                        value={checks[i] ?? ""}
-                        onChange={(e) =>
-                          setChecks((cs) => cs.map((x, j) => (j === i ? e.target.value : x)))
-                        }
-                      />
-                    </label>
-                  ))}
-                  <div className="flex gap-2">
-                    <button
-                      className="btn-primary btn-sm"
-                      disabled={busy || !printed || !checksOk}
-                      onClick={activate}
-                    >
-                      {busy ? "بيحفظ…" : "فعّل الكروت الجديدة"}
-                    </button>
-                    <button className="btn-ghost btn-sm" onClick={() => setPending(null)}>
-                      إلغاء (الكروت القديمة تفضل شغالة)
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : existing ? (
-            <div className="mt-3">
-              <p>
-                عندك كود شغّال (
-                {existing.type === "code" && existing.mode === "split2"
-                  ? "متقسّم على شخصين"
-                  : "كود واحد"}
-                ). أي ملف أهل جديد هيفتح بنفس الكروت اللي طبعتها.
-              </p>
-              {!confirmNew ? (
-                <button className="btn-outline btn-sm mt-3" onClick={() => setConfirmNew(true)}>
-                  اعمل كود جديد
-                </button>
-              ) : (
-                <div className="warn mt-3">
-                  <p>
-                    الكروت القديمة مش هتفتح أي ملف أهل جديد، ولا عمرها تفتح ملفك أنت. بس ملف الأهل
-                    القديم هيفضل يفتح بالكروت القديمة — اطلب من أهلك يمسحوه هو والكروت القديمة بعد
-                    ما يستلموا الجديد.
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-3">
-                    <label className="flex items-center gap-1">
-                      <input type="radio" checked={!split} onChange={() => setSplit(false)} /> كود
-                      واحد
-                    </label>
-                    <label className="flex items-center gap-1">
-                      <input type="radio" checked={split} onChange={() => setSplit(true)} /> كودين
-                    </label>
-                  </div>
-                  <div className="mt-2 flex gap-2">
-                    <button className="btn-primary btn-sm" disabled={busy} onClick={prepare}>
-                      أيوه، اعمل كود جديد
-                    </button>
-                    <button className="btn-ghost btn-sm" onClick={() => setConfirmNew(false)}>
-                      إلغاء
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <button className="btn-primary mt-3" disabled={busy} onClick={prepare}>
-              {busy ? "بيجهّز…" : "اعمل الكود"}
-            </button>
-          )}
-        </section>
-
-        <section className="panel">
-          <h2 className="font-bold text-primary">٣. نزّل ملف الأهل</h2>
-          <p className="mt-2 text-muted-foreground">
-            ابعت الملف ده لأهلك على واتساب أو احفظه عندهم في Drive. الملف لوحده مش بيفتح من غير
-            الكود. بعد أي تعديل نزّله تاني وابعته — من غير دفع تاني.
-          </p>
-          {findings.length > 0 && (
-            <div className="warn mt-3" role="status">
-              <ul className="list-disc space-y-1 pr-5">
-                {findings.map((f) => (
-                  <li key={f.section}>
-                    في «{f.label}»: {f.warnings.join("، ")}
-                  </li>
                 ))}
-              </ul>
-              <label className="mt-2 flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  className="mt-1.5"
-                  checked={reviewed}
-                  onChange={(e) => setReviewed(e.target.checked)}
-                />
-                <span>راجعتها، ومفيش أرقام حسابات كاملة ولا كلمات سر في الملف</span>
-              </label>
-            </div>
-          )}
-          {missing.length > 0 && (
-            <div className="notice mt-3" role="status">
-              <p>
-                لسه فاضي: {missing.map((k) => `«${SECTION_LABELS[k]}»`).join("، ")} — ممكن تكمّلهم من
-                صفحة الملف قبل ما تنزّله.
-              </p>
-              <Link to="/file" className="btn-outline btn-sm mt-2">
-                ارجع للملف
-              </Link>
-            </div>
-          )}
-          <button
-            className="btn-primary mt-3"
-            disabled={!existing || (!!pending && !activated) || needsReview}
-            onClick={exportFamily}
-          >
-            نزّل ملف-عهدة-للأهل.html
-          </button>
-        </section>
-
-        <section className="panel">
-          <h2 className="font-bold text-primary">٤. جرّب الفتح</h2>
-          <p className="mt-2 text-muted-foreground">
-            نزّل ملف تجريبي ببيانات وهمية وكود تجريبي، وخلّي أهلك يتمرّنوا على فتحه في صفحة «افتح
-            ملف أهلك» من غير ما يشوفوا ملفك الحقيقي.
-          </p>
-          <button className="btn-outline mt-3" onClick={makeDemo}>
-            نزّل ملف تجريبي
-          </button>
-          {demo && (
-            <div className="mt-3 space-y-2">
-              {demo.codes.map((c) => (
-                <p
-                  key={c}
-                  className="break-all rounded-lg bg-muted p-2 text-center font-mono"
-                  dir="ltr"
-                >
-                  {c}
-                </p>
-              ))}
-              <div className="flex gap-2">
-                <button className="btn-outline btn-sm" onClick={() => setPrintMode("demo")}>
-                  اطبع كارت تجريبي
-                </button>
-                <Link to="/open" className="btn-ghost btn-sm">
-                  افتح صفحة الفتح
-                </Link>
+                {existing && (
+                  <p className="field-hint">
+                    الطريقة دي ثابتة للكود الشغّال. تقدر تغيّرها لما تعمل كود جديد في خطوة ٢.
+                  </p>
+                )}
+              </fieldset>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label>
+                  <span className="field-label">
+                    {split ? "الشخص الأول" : "اسم اللي هيمسك الكود"}
+                  </span>
+                  <input
+                    className="field"
+                    value={holders[0] ?? ""}
+                    disabled={busy}
+                    onChange={(e) => setHolder(0, e.target.value)}
+                  />
+                </label>
+                {split && (
+                  <label>
+                    <span className="field-label">الشخص التاني</span>
+                    <input
+                      className="field"
+                      value={holders[1] ?? ""}
+                      disabled={busy}
+                      onChange={(e) => setHolder(1, e.target.value)}
+                    />
+                  </label>
+                )}
               </div>
+              {holdersDone && (
+                <button
+                  type="button"
+                  className="btn-outline btn-sm"
+                  onClick={() => setEditHolders(false)}
+                >
+                  تمام
+                </button>
+              )}
             </div>
           )}
-        </section>
-      </div>
+        </StepItem>
+
+        {/* 2 — the code and the printed card */}
+        <StepItem
+          n={2}
+          title="اعمل الكود واطبع الكارت"
+          state={st2}
+          summary={
+            codeDone && !pending
+              ? `عندك كود شغّال (${existing && existing.type === "code" && existing.mode === "split2" ? "متقسّم على شخصين" : "كود واحد"})`
+              : st2 === "upcoming"
+                ? "بعد ما تكتب اسم اللي هيمسك الكود."
+                : "بتطبع الكارت، وبعدين تأكّد إنه في إيد اللي هيمسكه."
+          }
+        >
+          <div className="space-y-3">
+            {s.plan.handover?.reissueNeeded && !existing && !codes && (
+              <p className="warn" role="status">
+                حدّثنا طريقة حماية ملفات الأهل. اعمل كود جديد واطبع كروت جديدة وابعت ملف أهل جديد،
+                واطلب من أهلك يمسحوا الملف والكروت القديمة.
+              </p>
+            )}
+            {err && (
+              <p role="alert" className="err-text">
+                {err}
+              </p>
+            )}
+            {codes ? (
+              <div className="space-y-4">
+                {activated ? (
+                  <p className="notice font-semibold" role="status">
+                    الكروت الجديدة اتفعّلت ✓ نزّل ملف أهل جديد وابعته، واطلب من أهلك يمسحوا الملف
+                    والكروت القديمة.
+                  </p>
+                ) : (
+                  <p className="warn font-semibold">
+                    الكروت دي لسه مش متفعّلة. اطبعها، وبعدين أكّد تحت. لو قفلت الصفحة قبل التأكيد
+                    الكروت القديمة بتفضل هي الشغالة.
+                  </p>
+                )}
+                {codes.map((c, i) => (
+                  <div key={c} className="subpanel space-y-3 text-center">
+                    {codes.length === 2 && (
+                      <p className="text-sm font-semibold">
+                        النص {i === 0 ? "الأول" : "التاني"} {holders[i] && `— ${holders[i]}`}
+                      </p>
+                    )}
+                    <CodeText code={c} />
+                    <Copy text={c} />
+                  </div>
+                ))}
+                <button
+                  className="btn-primary w-full sm:w-auto"
+                  onClick={() => setPrintMode("real")}
+                >
+                  اطبع الكروت
+                </button>
+                {!activated && (
+                  <div className="space-y-3 rounded-xl border border-border p-4">
+                    <p className="font-semibold">بعد الطباعة: أكّد إن الكارت صح</p>
+                    <label className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={printed}
+                        onChange={(e) => setPrinted(e.target.checked)}
+                      />
+                      <span>
+                        طبعت الكروت (أو كتبتها) وهي في إيد{" "}
+                        {codes.length === 2 ? "الشخصين" : "الشخص"} اللي هيمسكها.
+                      </span>
+                    </label>
+                    {codes.map((_, i) => (
+                      <label key={i} className="block">
+                        <span className="field-label">
+                          اكتب آخر 4 حروف من{" "}
+                          {codes.length === 2
+                            ? i === 0
+                              ? "الكارت الأول"
+                              : "الكارت التاني"
+                            : "الكارت"}{" "}
+                          المطبوع
+                        </span>
+                        <input
+                          className="code-input max-w-48"
+                          dir="ltr"
+                          maxLength={6}
+                          autoComplete="off"
+                          value={checks[i] ?? ""}
+                          onChange={(e) =>
+                            setChecks((cs) => cs.map((x, j) => (j === i ? e.target.value : x)))
+                          }
+                        />
+                      </label>
+                    ))}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        className="btn-primary btn-sm"
+                        disabled={busy || !printed || !checksOk}
+                        onClick={activate}
+                      >
+                        {busy ? "بيحفظ…" : "فعّل الكروت الجديدة"}
+                      </button>
+                      <button className="btn-ghost btn-sm" onClick={() => setPending(null)}>
+                        إلغاء (الكروت القديمة تفضل شغالة)
+                      </button>
+                    </div>
+                    {(!printed || !checksOk) && (
+                      <p className="why">
+                        {!printed
+                          ? "علّم على «طبعت الكروت» الأول."
+                          : "آخر 4 حروف لازم يطابقوا الكارت."}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : existing ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  أي ملف أهل جديد هيفتح بنفس الكروت اللي طبعتها.
+                </p>
+                {!confirmNew ? (
+                  <button className="btn-outline btn-sm" onClick={() => setConfirmNew(true)}>
+                    اعمل كود جديد
+                  </button>
+                ) : (
+                  <div className="warn space-y-3">
+                    <p>
+                      الكروت القديمة مش هتفتح أي ملف أهل جديد، ولا عمرها تفتح ملفك أنت. بس ملف الأهل
+                      القديم هيفضل يفتح بالكروت القديمة — اطلب من أهلك يمسحوه هو والكروت القديمة بعد
+                      ما يستلموا الجديد.
+                    </p>
+                    <fieldset className="flex flex-wrap gap-4">
+                      <legend className="sr-only">طريقة الكود الجديد</legend>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="new-code-mode"
+                          checked={!split}
+                          onChange={() => setSplit(false)}
+                        />{" "}
+                        كود واحد
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="new-code-mode"
+                          checked={split}
+                          onChange={() => setSplit(true)}
+                        />{" "}
+                        كودين
+                      </label>
+                    </fieldset>
+                    <div className="flex flex-wrap gap-2">
+                      <button className="btn-primary btn-sm" disabled={busy} onClick={prepare}>
+                        أيوه، اعمل كود جديد
+                      </button>
+                      <button className="btn-ghost btn-sm" onClick={() => setConfirmNew(false)}>
+                        إلغاء
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                className={st2 === "current" ? "btn-primary" : "btn-outline"}
+                disabled={busy}
+                onClick={prepare}
+              >
+                {busy ? "بيجهّز…" : "اعمل الكود"}
+              </button>
+            )}
+          </div>
+        </StepItem>
+
+        {/* 3 — download and send the family file */}
+        <StepItem
+          n={3}
+          title="نزّل ملف الأهل وابعته"
+          state={st3}
+          summary={
+            downloaded
+              ? "اتنزّل ✓ ابعته لأهلك. بعد أي تعديل نزّله تاني — من غير دفع تاني."
+              : "ابعته على واتساب أو احفظه عندهم في Drive. الملف لوحده مش بيفتح من غير الكود."
+          }
+        >
+          <div className="space-y-3">
+            {(findings.length > 0 || missing.length > 0) && (
+              <div className="warn space-y-3" role="status">
+                <p className="font-semibold">قبل ما تنزّله:</p>
+                {missing.length > 0 && (
+                  <div className="space-y-2">
+                    <p>
+                      لسه فاضي: {missing.map((k) => `«${SECTION_LABELS[k]}»`).join("، ")} — ممكن
+                      تكمّلهم من صفحة الملف.
+                    </p>
+                    <Link to="/file" className="btn-outline btn-sm">
+                      ارجع للملف
+                    </Link>
+                  </div>
+                )}
+                {findings.length > 0 && (
+                  <div className="space-y-2">
+                    <ul className="list-disc space-y-1 ps-5">
+                      {findings.map((f) => (
+                        <li key={f.section}>
+                          في «{f.label}»: {f.warnings.join("، ")}
+                        </li>
+                      ))}
+                    </ul>
+                    <label className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={reviewed}
+                        onChange={(e) => setReviewed(e.target.checked)}
+                      />
+                      <span>راجعتها، ومفيش أرقام حسابات كاملة ولا كلمات سر في الملف</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <button
+                className={st3 === "current" ? "btn-primary" : "btn-outline"}
+                disabled={!existing || (!!pending && !activated) || needsReview}
+                onClick={exportFamily}
+              >
+                نزّل ملف-عهدة-للأهل.html
+              </button>
+              {downloadBlocked && <p className="why">{downloadBlocked}</p>}
+            </div>
+          </div>
+        </StepItem>
+
+        {/* 4 — rehearsal (optional) */}
+        <StepItem
+          n={4}
+          title="جرّبوا الفتح (اختياري)"
+          state={st4}
+          last
+          summary="ملف تجريبي ببيانات وهمية وكود تجريبي، يتمرّن عليه أهلك من غير ما يشوفوا ملفك الحقيقي."
+        >
+          <div className="space-y-3">
+            <button className="btn-outline btn-sm" onClick={makeDemo}>
+              نزّل ملف تجريبي
+            </button>
+            {demo && (
+              <div className="space-y-3">
+                {demo.codes.map((c) => (
+                  <div key={c} className="subpanel">
+                    <CodeText code={c} className="text-base" />
+                  </div>
+                ))}
+                <div className="flex flex-wrap gap-2">
+                  <button className="btn-outline btn-sm" onClick={() => setPrintMode("demo")}>
+                    اطبع كارت تجريبي
+                  </button>
+                  <Link to="/open" className="btn-ghost btn-sm">
+                    افتح صفحة الفتح
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+        </StepItem>
+      </ol>
     </Page>
   );
 }
