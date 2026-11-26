@@ -38,32 +38,34 @@ export function Header() {
   return (
     <header className="noprint sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
-        <Link to="/" className="flex items-center gap-2.5">
-          <LogoMark size={38} />
+        <Link
+          to="/"
+          className="flex min-w-0 items-center gap-2.5"
+          aria-label="عُهدة — الصفحة الرئيسية"
+        >
+          <LogoMark size={36} />
           <span className="leading-tight">
             <span className="block text-xl font-bold text-primary">عُهدة</span>
-            <span className="block text-[11px] text-muted-foreground" dir="ltr">
+            <span className="hidden text-[11px] text-muted-foreground sm:block" dir="ltr">
               by Code &amp; Canvas
             </span>
           </span>
-          <span className="rounded-full bg-gold-soft px-2 py-0.5 text-[11px] font-semibold text-foreground border border-gold/40">
-            نسخة تجريبية
+          <span className="chip-todo px-2 text-[11px] leading-5">
+            <span className="sm:hidden">تجريبي</span>
+            <span className="hidden sm:inline">نسخة تجريبية</span>
           </span>
         </Link>
-        <nav className="flex items-center gap-1 text-sm">
+        <nav className="flex shrink-0 items-center gap-1 text-sm" aria-label="الرئيسية">
           <Link
             to="/open"
-            aria-label="افتح ملف أهلك"
-            className="inline-flex min-h-11 items-center rounded-lg px-2 py-1.5 hover:bg-secondary sm:min-h-0"
+            aria-label="افتح ملف استلمته من أهلك"
+            className="inline-flex min-h-11 items-center rounded-lg px-2.5 font-semibold whitespace-nowrap hover:bg-secondary"
           >
-            <span className="sm:hidden">ملف أهلك</span>
-            <span className="hidden sm:inline">افتح ملف أهلك</span>
+            <span className="sm:hidden">استلمت ملف؟</span>
+            <span className="hidden sm:inline">استلمت ملف من أهلك؟</span>
           </Link>
-          <Link
-            to="/start"
-            className="btn-primary btn-sm inline-flex min-h-11 items-center sm:min-h-0"
-          >
-            ملفي
+          <Link to="/start" className="btn-primary btn-sm min-h-11 whitespace-nowrap">
+            اكتب ملفي
           </Link>
         </nav>
       </div>
@@ -106,7 +108,7 @@ export function Page({ children, narrow }: { children: React.ReactNode; narrow?:
   return (
     <main className={`mx-auto px-4 py-8 ${narrow ? "max-w-2xl" : "max-w-5xl"}`}>
       {DEMO && (
-        <p className="notice mb-4 text-sm" role="note">
+        <p className="notice mb-5 text-sm" role="note">
           نسخة تجريبية للتصميم — مفيش سيرفر ولا بيانات حقيقية.
         </p>
       )}

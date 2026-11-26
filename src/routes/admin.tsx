@@ -219,6 +219,7 @@ function Mfa({
       )}
       <input
         className="field text-center font-mono text-lg"
+        aria-label="كود التحقق (6 أرقام)"
         inputMode="numeric"
         autoComplete="one-time-code"
         maxLength={6}
@@ -291,22 +292,28 @@ function Login({ setup, onDemo }: { setup: boolean; onDemo?: () => void }) {
       }}
     >
       <h1 className="text-xl font-bold">{mode === "in" ? "دخول الإدارة" : "إنشاء حساب إدارة"}</h1>
-      <input
-        className="field"
-        type="email"
-        dir="ltr"
-        placeholder="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <input
-        className="field"
-        type="password"
-        dir="ltr"
-        placeholder="password"
-        value={pw}
-        onChange={(e) => setPw(e.target.value)}
-      />
+      <label className="block">
+        <span className="field-label">الإيميل</span>
+        <input
+          className="field"
+          type="email"
+          dir="ltr"
+          autoComplete="username"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+      </label>
+      <label className="block">
+        <span className="field-label">كلمة السر</span>
+        <input
+          className="field"
+          type="password"
+          dir="ltr"
+          autoComplete="current-password"
+          value={pw}
+          onChange={(e) => setPw(e.target.value)}
+        />
+      </label>
       <button className="btn-primary w-full">{mode === "in" ? "دخول" : "إنشاء"}</button>
       {setup && (
         <button

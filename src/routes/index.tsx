@@ -45,8 +45,8 @@ function Landing() {
     <>
       <section className="bg-primary text-primary-foreground">
         <div className="mx-auto max-w-5xl px-4 py-16 sm:py-24">
-          <p className="eyebrow">ملف لأهلك، مشفّر على جهازك</p>
-          <h1 className="mt-3 text-3xl font-bold sm:text-5xl">
+          <p className="text-sm font-semibold text-gold-light">ملف لأهلك، مشفّر على جهازك</p>
+          <h1 className="mt-3 text-[2rem] leading-tight font-bold sm:text-5xl">
             لو غبت فجأة… أهلك يعرفوا يبدأوا منين؟
           </h1>
           <p className="mt-5 max-w-2xl text-lg opacity-90">
@@ -68,7 +68,8 @@ function Landing() {
       </section>
 
       <Page>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <h2 className="text-2xl font-bold">إمتى أهلك هيحتاجوه؟</h2>
+        <div className="mt-5 grid gap-4 sm:grid-cols-3">
           {scenarios.map((s) => (
             <div key={s.t} className="panel">
               <h3 className="text-lg font-bold text-primary">{s.t}</h3>
@@ -78,31 +79,54 @@ function Landing() {
         </div>
 
         <h2 className="mt-14 text-2xl font-bold">بتشتغل إزاي</h2>
-        <ol className="mt-5 grid gap-4 sm:grid-cols-3">
-          {["املا ملفك في 10 دقايق", "احفظه مشفّر على جهازك", "سلّمه لأهلك بكود مطبوع"].map(
-            (s, i) => (
-              <li key={s} className="panel flex items-center gap-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gold text-lg font-bold">
-                  {i + 1}
-                </span>
-                <span className="font-semibold">{s}</span>
-              </li>
-            ),
-          )}
+        <ol className="mt-5 grid gap-x-6 gap-y-4 sm:grid-cols-3">
+          {[
+            ["املا ملفك في 10 دقايق", "الشغل، البنوك، التأمين، ومين يكلموا الأول."],
+            ["احفظه مشفّر على جهازك", "من غير حساب، ونزّل نسخة احتياطية."],
+            ["سلّمه لأهلك بكود مطبوع", "ملف بيفتح من غير الموقع، بالكارت بس."],
+          ].map(([t, d], i) => (
+            <li key={t} className="flex items-start gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-full border-2 border-gold font-bold text-gold-ink">
+                {(i + 1).toLocaleString("ar-EG")}
+              </span>
+              <span>
+                <span className="block font-semibold">{t}</span>
+                <span className="block text-sm text-muted-foreground">{d}</span>
+              </span>
+            </li>
+          ))}
         </ol>
 
         <section className="mt-14 rounded-2xl bg-mint p-6 sm:p-8">
           <h2 className="text-2xl font-bold text-primary">بياناتك بتفضل معاك</h2>
           <ul className="mt-4 space-y-2">
-            <li>• التشفير بيحصل على جهازك، قبل ما أي حاجة تتحفظ.</li>
-            <li>• إحنا ما بنشوفش ولا بنخزّن ملفك. مفيش سيرفر عليه بياناتك.</li>
-            <li>• مفيش حساب ولا إيميل ولا رقم موبايل مطلوب.</li>
+            {[
+              "التشفير بيحصل على جهازك، قبل ما أي حاجة تتحفظ.",
+              "إحنا ما بنشوفش ولا بنخزّن ملفك. مفيش سيرفر عليه بياناتك.",
+              "مفيش حساب ولا إيميل ولا رقم موبايل مطلوب.",
+            ].map((t) => (
+              <li key={t} className="flex items-start gap-2.5">
+                <span aria-hidden="true" className="font-bold text-primary">
+                  ✓
+                </span>
+                <span>{t}</span>
+              </li>
+            ))}
           </ul>
           <h3 className="mt-6 font-bold">حاجات ما بنطلبهاش ولا المفروض تكتبها</h3>
-          <ul className="mt-2 space-y-1 text-muted-foreground">
-            <li>• كلمات السر ورموز التحقق (OTP).</li>
-            <li>• أرقام الحسابات أو الكروت كاملة — اسم البنك ونوع الحساب كفاية.</li>
-            <li>• عُهدة مش وصية قانونية ولا شرعية.</li>
+          <ul className="mt-2 space-y-1.5 text-muted-foreground">
+            {[
+              "كلمات السر ورموز التحقق (OTP).",
+              "أرقام الحسابات أو الكروت كاملة — اسم البنك ونوع الحساب كفاية.",
+              "عُهدة مش وصية قانونية ولا شرعية.",
+            ].map((t) => (
+              <li key={t} className="flex items-start gap-2.5">
+                <span aria-hidden="true" className="font-bold text-destructive">
+                  ✕
+                </span>
+                <span>{t}</span>
+              </li>
+            ))}
           </ul>
           <Link to="/security" className="btn-ghost mt-4 px-0">
             إزاي بنحمي ملفك ←
@@ -145,9 +169,17 @@ function Landing() {
           <h2 className="text-2xl font-bold">أسئلة بتتسأل كتير</h2>
           <div className="mt-4 space-y-3">
             {faq.map(([q, a]) => (
-              <details key={q} className="panel">
-                <summary className="cursor-pointer font-semibold">{q}</summary>
-                <p className="mt-2 text-muted-foreground">{a}</p>
+              <details key={q} className="group panel py-0 sm:py-0">
+                <summary className="flex min-h-14 list-none items-center justify-between gap-3 py-3 font-semibold [&::-webkit-details-marker]:hidden">
+                  {q}
+                  <span
+                    aria-hidden="true"
+                    className="grid size-7 shrink-0 place-items-center rounded-full bg-secondary text-lg leading-none text-primary transition-transform group-open:rotate-45"
+                  >
+                    +
+                  </span>
+                </summary>
+                <p className="pb-4 text-muted-foreground">{a}</p>
               </details>
             ))}
           </div>
