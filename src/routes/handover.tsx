@@ -646,6 +646,10 @@ function Flow({ act }: { act: Activation }) {
                 {exportErr}
               </p>
             )}
+            <p className="why">
+              الفحص التلقائي بيدوّر على كلمات وأرقام معروفة بس، ومش ضمان إنه يلقط كل حاجة. اقرا ملفك
+              بنفسك قبل ما تبعته.
+            </p>
           </div>
         </StepItem>
 

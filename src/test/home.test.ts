@@ -19,7 +19,14 @@ import {
   writeQuizGaps,
 } from "@/lib/home";
 import { emptyPlan, familyCopy, normalizePlan, type Plan } from "@/lib/plan";
-import { SECTION_LABELS, SECTION_ORDER, sectionDone, sensitiveFindings } from "@/lib/review";
+import {
+  SECTION_LABELS,
+  SECTION_ORDER,
+  missingWhy,
+  sectionDone,
+  sectionStates,
+  sensitiveFindings,
+} from "@/lib/review";
 
 const filled = (): Plan => ({
   ...emptyPlan(),
@@ -86,7 +93,7 @@ describe("nextStep", () => {
   it("is null when every section is done", () => {
     const p: Plan = {
       ...filled(),
-      work: { ...emptyPlan().work, employer: "شركة" },
+      work: { ...emptyPlan().work, employer: "شركة", employerPhone: "0112345678" },
       banks: [{ name: "بنك", country: "", type: "", note: "" }],
       insurance: [{ company: "شركة", type: "", policyRef: "", note: "" }],
       owedToMe: [{ who: "x", amount: "", currency: "", proof: "" }],
@@ -192,7 +199,7 @@ describe("quiz follow-ups", () => {
 describe("readiness separates what the family needs from what is optional", () => {
   const essentials = (): Plan => ({
     ...filled(),
-    work: { ...emptyPlan().work, employer: "شركة" },
+    work: { ...emptyPlan().work, employer: "شركة", employerPhone: "0112345678" },
     banks: [{ name: "بنك", country: "", type: "", note: "" }],
   });
 
@@ -215,5 +222,76 @@ describe("readiness separates what the family needs from what is optional", () =
     expect(readiness(more).optionalDone).toBe(2);
     const half: Plan = { ...filled(), letter: "رسالة" };
     expect(readiness(half).pct).toBe(60); // owner, firstSteps, contacts of 5
+  });
+});
+
+describe("section states: complete, incomplete, not applicable", () => {
+  it("needs a phone for the owner and a way to reach the employer", () => {
+    const base = emptyPlan();
+    const nameOnly: Plan = { ...base, owner: { ...base.owner, name: "أحمد" } };
+    expect(sectionDone(nameOnly).owner).toBe(false);
+    expect(missingWhy(nameOnly, "owner")).toContain("موبايلك");
+    expect(sectionDone({ ...nameOnly, owner: { ...nameOnly.owner, phone: "0100" } }).owner).toBe(
+      true,
+    );
+
+    const employerOnly: Plan = { ...base, work: { ...base.work, employer: "شركة" } };
+    expect(sectionDone(employerOnly).work).toBe(false);
+    expect(missingWhy(employerOnly, "work")).toContain("الموارد البشرية");
+    for (const extra of [{ employerPhone: "011" }, { hrContact: "أستاذ سامي" }])
+      expect(sectionDone({ ...employerOnly, work: { ...employerOnly.work, ...extra } }).work).toBe(
+        true,
+      );
+    // an empty section has no "why": it is just empty
+    expect(missingWhy(base, "owner")).toBeNull();
+    expect(missingWhy(base, "work")).toBeNull();
+  });
+
+  it("an empty debt row does not count as filled in", () => {
+    const p: Plan = {
+      ...emptyPlan(),
+      owedToMe: [{ who: "", amount: "", currency: "", proof: "" }],
+    };
+    expect(sectionDone(p).owedToMe).toBe(false);
+    expect(sectionDone({ ...p, owedToMe: [{ ...p.owedToMe[0]!, who: "أحمد" }] }).owedToMe).toBe(
+      true,
+    );
+  });
+
+  it("marks a section not applicable, and content always wins over the mark", () => {
+    const p: Plan = { ...emptyPlan(), na: ["iOwe", "banks"] };
+    expect(sectionStates(p).iOwe).toBe("na");
+    expect(sectionStates(p).insurance).toBe("incomplete");
+    const withBank: Plan = { ...p, banks: [{ name: "بنك", country: "", type: "", note: "" }] };
+    expect(sectionStates(withBank).banks).toBe("complete");
+    // the owner, first steps and contacts can never be marked not applicable
+    const sneaky = normalizePlan({
+      ...emptyPlan(),
+      na: ["owner", "contacts", "firstSteps", "iOwe"],
+    });
+    expect(sneaky.na).toEqual(["iOwe"]);
+    expect(sectionStates({ ...emptyPlan(), na: ["owner"] } as Plan).owner).toBe("incomplete");
+  });
+
+  it("settles readiness and the next step, and stays out of the family copy", () => {
+    const base: Plan = {
+      ...filled(),
+      work: { ...emptyPlan().work, employer: "شركة", hrContact: "س" },
+    };
+    expect(readiness(base)).toMatchObject({ essentialDone: 4, ready: false });
+    const noBank: Plan = { ...base, na: ["banks"] };
+    expect(readiness(noBank)).toMatchObject({ essentialDone: 5, ready: true, pct: 100 });
+    expect(nextStep(noBank)).toBe("insurance"); // not "banks"
+    expect(nextStep({ ...noBank, na: ["banks", "insurance", "owedToMe"] })).toBe("iOwe");
+    expect("na" in familyCopy(noBank)).toBe(false);
+  });
+
+  it("keeps working for older files that have no marks at all", () => {
+    const old = { ...emptyPlan() } as Record<string, unknown>;
+    delete old["na"];
+    expect(normalizePlan(old).na).toEqual([]);
+    expect(sectionStates(normalizePlan(old)).banks).toBe("incomplete");
+    expect(normalizePlan({ ...old, na: "banks" }).na).toEqual([]);
+    expect(normalizePlan({ ...old, na: ["banks", "banks", 5, "<x>"] }).na).toEqual(["banks"]);
   });
 });

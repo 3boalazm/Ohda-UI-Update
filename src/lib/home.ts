@@ -10,7 +10,7 @@ import {
   ESSENTIAL_SECTIONS,
   KEY_SECTIONS,
   SECTION_ORDER,
-  sectionDone,
+  sectionStates,
   type SectionKey,
 } from "@/lib/review";
 
@@ -25,9 +25,14 @@ export type Readiness = {
   /** every essential section is filled in: the file can be handed over */
   ready: boolean;
 };
-/** How ready the file is for the family. Optional sections never lower it. */
+/**
+ * How ready the file is for the family. Optional sections never lower it, and a section the owner
+ * marked "not applicable" counts as settled.
+ */
 export function readiness(p: Plan): Readiness {
-  const done = sectionDone(p);
+  const st = sectionStates(p);
+  const done: Record<string, boolean> = {};
+  for (const k of SECTION_ORDER) done[k] = st[k] !== "incomplete";
   const optional = SECTION_ORDER.filter((k) => !ESSENTIAL_SECTIONS.includes(k));
   const essentialDone = ESSENTIAL_SECTIONS.filter((k) => done[k]).length;
   const essentialTotal = ESSENTIAL_SECTIONS.length;
@@ -43,8 +48,12 @@ export function readiness(p: Plan): Readiness {
 
 /** The section to fill next: what the family needs most, then the other essentials, then optional. */
 export function nextStep(p: Plan): SectionKey | null {
-  const done = sectionDone(p);
-  return [...KEY_SECTIONS, ...ESSENTIAL_SECTIONS, ...SECTION_ORDER].find((k) => !done[k]) ?? null;
+  const st = sectionStates(p);
+  return (
+    [...KEY_SECTIONS, ...ESSENTIAL_SECTIONS, ...SECTION_ORDER].find(
+      (k) => st[k] === "incomplete",
+    ) ?? null
+  );
 }
 
 // ---------- groups (the big-word filter) ----------

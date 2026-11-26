@@ -34,6 +34,11 @@ export interface Plan {
   assets: Asset[];
   /** added 2026-11; older files simply have none */
   accounts: OnlineAccount[];
+  /**
+   * Sections the owner marked "not applicable" (no debts, no insurance...). Owner-only readiness
+   * state: never part of the family copy. Optional so older files and family copies stay valid.
+   */
+  na?: string[];
   wishes: string;
   /** personal message shown first when the family opens the file (added 2026-11) */
   letter: string;
@@ -80,10 +85,24 @@ export function emptyPlan(): Plan {
     iOwe: [],
     assets: [],
     accounts: [],
+    na: [],
     wishes: "",
     letter: "",
   };
 }
+
+/** Sections that can be marked "not applicable". Never the owner, the first steps or the contacts. */
+export const NA_ALLOWED = [
+  "work",
+  "banks",
+  "insurance",
+  "owedToMe",
+  "iOwe",
+  "assets",
+  "accounts",
+  "wishes",
+  "letter",
+] as const;
 
 export const MAX_TEXT = 20_000;
 export const MAX_ROWS = 500;
@@ -143,6 +162,13 @@ export function normalizePlan(x: unknown): Plan {
     iOwe: rows({ to: "", amount: "", currency: "", how: "" }, p.iOwe),
     assets: rows({ item: "", location: "", holder: "" }, p.assets),
     accounts: rows({ name: "", login: "", action: "", note: "" }, p.accounts),
+    na: Array.isArray(p.na)
+      ? [
+          ...new Set(
+            p.na.filter((k): k is string => (NA_ALLOWED as readonly unknown[]).includes(k)),
+          ),
+        ]
+      : [],
     wishes: str(p.wishes),
     letter: str(p.letter),
     ...(h ? { handover: h } : {}),

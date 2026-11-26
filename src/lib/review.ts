@@ -1,5 +1,5 @@
 import type { Plan } from "@/lib/plan";
-import { SECRET_WARNING, familyCopy, sensitiveWarnings } from "@/lib/plan";
+import { NA_ALLOWED, SECRET_WARNING, familyCopy, sensitiveWarnings } from "@/lib/plan";
 
 /** Editor sections, in the order the owner sees them. */
 export type SectionKey =
@@ -68,19 +68,57 @@ export const isEssential = (k: SectionKey): boolean => ESSENTIAL_SECTIONS.includ
 /** Whether each section has enough content to count as filled in. */
 export function sectionDone(p: Plan): Record<SectionKey, boolean> {
   return {
-    owner: !!p.owner.name,
+    // a name alone does not let the family reach anyone: the phone counts too
+    owner: !!p.owner.name && !!p.owner.phone,
     firstSteps: p.firstSteps.trim().length > 10,
     contacts: p.contacts.some((c) => !!c.name && !!c.phone),
-    work: !!p.work.employer,
+    // the employer needs a way to be reached: its phone or an HR contact
+    work: !!p.work.employer && (!!p.work.employerPhone || !!p.work.hrContact),
     banks: p.banks.some((b) => !!b.name),
     insurance: p.insurance.some((i) => !!i.company),
-    owedToMe: p.owedToMe.length > 0,
-    iOwe: p.iOwe.length > 0,
+    owedToMe: p.owedToMe.some((r) => !!r.who),
+    iOwe: p.iOwe.some((r) => !!r.to),
     assets: p.assets.some((a) => !!a.item),
     accounts: p.accounts.some((a) => !!a.name),
     wishes: p.wishes.trim().length > 0,
     letter: p.letter.trim().length > 0,
   };
+}
+
+/** What a section can be: filled in, not yet, or marked by the owner as not applying to them. */
+export type SectionState = "complete" | "incomplete" | "na";
+export const canBeNotApplicable = (k: SectionKey): boolean =>
+  (NA_ALLOWED as readonly string[]).includes(k);
+/** What "not applicable" means in each section, as an example under the switch. */
+export const NA_EXAMPLE: Partial<Record<SectionKey, string>> = {
+  work: "مثلًا: مش شغّال دلوقتي.",
+  banks: "مثلًا: مفيش عندي حساب بنكي.",
+  insurance: "مثلًا: مفيش عندي تأمين.",
+  owedToMe: "مثلًا: مفيش حد مديون لي.",
+  iOwe: "مثلًا: مفيش عليا ديون.",
+  assets: "مثلًا: مفيش أملاك ولا أوراق مهمة.",
+  accounts: "مثلًا: مفيش حسابات محتاجة حد يتصرف فيها.",
+  wishes: "مثلًا: مفيش رغبات معينة.",
+  letter: "مثلًا: مش عايز أكتب رسالة.",
+};
+/** Content wins: a section with data is complete even if it was once marked not applicable. */
+export function sectionStates(p: Plan): Record<SectionKey, SectionState> {
+  const done = sectionDone(p);
+  const na = new Set(p.na ?? []);
+  const out = {} as Record<SectionKey, SectionState>;
+  for (const k of SECTION_ORDER)
+    out[k] = done[k] ? "complete" : canBeNotApplicable(k) && na.has(k) ? "na" : "incomplete";
+  return out;
+}
+
+/** Why a section that has something in it is still not complete (null when empty or complete). */
+export function missingWhy(p: Plan, k: SectionKey): string | null {
+  if (sectionDone(p)[k]) return null;
+  if (k === "owner" && p.owner.name && !p.owner.phone)
+    return "ضيف رقم موبايلك عشان أهلك يوصلوا لك.";
+  if (k === "work" && p.work.employer && !p.work.employerPhone && !p.work.hrContact)
+    return "ضيف تليفون الشركة أو مسؤول الموارد البشرية عشان أهلك يعرفوا يتصلوا بيهم.";
+  return null;
 }
 
 /** Key sections that are still empty, in KEY_SECTIONS order. */

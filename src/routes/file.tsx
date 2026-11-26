@@ -28,7 +28,11 @@ import { MAX_ROWS, downloadBlob, familyCopy, today, type Plan } from "@/lib/plan
 import {
   KEY_SECTIONS,
   SECTION_LABELS,
+  NA_EXAMPLE,
+  canBeNotApplicable,
   isEssential,
+  missingWhy,
+  sectionStates,
   SECTION_ORDER,
   missingKeySections,
   sectionDone,
@@ -235,8 +239,20 @@ function FilePage() {
     setLastBackup(readLastBackup());
     setQuizTodo(readQuizGaps());
   }, []);
+  // After opening a section, keyboard and screen-reader users land on it: on its first field when
+  // they came from the quick-add sheet ("رسالة لأهلك"), otherwise on its heading.
+  const focusEditor = useRef(false);
   useEffect(() => {
     window.scrollTo(0, 0);
+    if (!openKey) return;
+    const heading = document.getElementById("section-title");
+    const target = focusEditor.current
+      ? heading
+          ?.closest("section")
+          ?.querySelector<HTMLElement>("textarea, input:not([type=checkbox])")
+      : heading;
+    focusEditor.current = false;
+    target?.focus({ preventScroll: true });
   }, [openKey, view]);
   useEffect(() => {
     if (!toast) return;
@@ -257,6 +273,7 @@ function FilePage() {
   const rd = readiness(p);
   const pct = rd.pct;
   const done = sectionDone(p);
+  const states = sectionStates(p);
   const next = nextStep(p);
   const setOwner = (k: keyof Plan["owner"]) => (val: string) =>
     u((x) => ({ ...x, owner: { ...x.owner, [k]: val } }));
@@ -610,17 +627,56 @@ function FilePage() {
             القسم {i + 1} من {SECTION_ORDER.length}
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <h1 id="section-title" className="text-2xl font-bold">
+            <h1 id="section-title" tabIndex={-1} className="text-2xl font-bold outline-none">
               {SECTION_LABELS[openKey]}
             </h1>
-            {done[openKey] ? (
+            {states[openKey] === "complete" ? (
               <span className="chip-done">✓ مكتمل</span>
+            ) : states[openKey] === "na" ? (
+              <span className="chip-neutral">مش ينطبق عليك</span>
             ) : (
               KEY_SECTIONS.includes(openKey) && <span className="chip-todo">مهم لأهلك</span>
             )}
           </div>
-          <p className="mt-1 mb-5 text-muted-foreground">{SECTION_HINT[openKey]}</p>
-          {body[i]}
+          <p className="mt-1 mb-4 text-muted-foreground">{SECTION_HINT[openKey]}</p>
+          {missingWhy(p, openKey) && (
+            <p className="warn mb-4" role="status">
+              لسه ناقص: {missingWhy(p, openKey)}
+            </p>
+          )}
+          {canBeNotApplicable(openKey) && (
+            <label
+              className={`mb-5 flex items-start gap-3 rounded-2xl bg-muted px-4 py-3 ${done[openKey] ? "opacity-60" : ""}`}
+            >
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={states[openKey] === "na"}
+                disabled={done[openKey]}
+                onChange={(e) =>
+                  u((x) => {
+                    const rest = (x.na ?? []).filter((k) => k !== openKey);
+                    return { ...x, na: e.target.checked ? [...rest, openKey] : rest };
+                  })
+                }
+              />
+              <span>
+                مش ينطبق عليا
+                <span className="field-hint">
+                  {done[openKey]
+                    ? "فيه بيانات في القسم ده، فهو متحسوب."
+                    : `${NA_EXAMPLE[openKey] ?? ""} القسم ده مش هيتحسب ناقص في الجاهزية.`}
+                </span>
+              </span>
+            </label>
+          )}
+          {states[openKey] === "na" ? (
+            <p className="notice">
+              تمام، القسم ده مش هيظهر ناقص. لو اتغيّر الوضع، شيل العلامة وضيف بياناتك.
+            </p>
+          ) : (
+            body[i]
+          )}
         </section>
         {bar(
           <div className="flex items-center justify-between gap-2 rounded-full bg-card p-2 shadow-float">
@@ -654,7 +710,7 @@ function FilePage() {
   // ---------- home ----------
   const shown = SECTION_ORDER.filter((k) => group === "all" || SECTION_GROUP[k] === group);
   const groupName = (k: SectionKey) => GROUPS.find(([g]) => g === SECTION_GROUP[k])?.[1] ?? "";
-  const quizLeft = quizTodo.filter((k) => !done[k]);
+  const quizLeft = quizTodo.filter((k) => states[k] === "incomplete");
   const bState = backupState(lastBackup, p.updated);
 
   return (
@@ -788,7 +844,8 @@ function FilePage() {
       >
         {shown.map((k, i) => {
           const isNext = k === next;
-          const important = !done[k] && KEY_SECTIONS.includes(k);
+          const na = states[k] === "na";
+          const important = !done[k] && !na && KEY_SECTIONS.includes(k);
           const count = sectionCount(p, k);
           const tone = isNext
             ? "bg-ink text-ink-foreground"
@@ -810,11 +867,17 @@ function FilePage() {
                     ? "الخطوة الجاية"
                     : important
                       ? "مهم لأهلك"
-                      : isEssential(k) || done[k]
-                        ? groupName(k)
-                        : `${groupName(k)} · اختياري`}
+                      : na
+                        ? "مش ينطبق عليك"
+                        : isEssential(k) || done[k]
+                          ? groupName(k)
+                          : `${groupName(k)} · اختياري`}
                 </span>
-                {done[k] ? (
+                {na ? (
+                  <span className="grid size-6 place-items-center rounded-full bg-current/10 text-xs">
+                    —
+                  </span>
+                ) : done[k] ? (
                   <span className="grid size-6 place-items-center rounded-full bg-primary text-primary-foreground">
                     <Icon name="check" className="size-3.5" />
                   </span>
@@ -828,7 +891,7 @@ function FilePage() {
                 <span className="text-lg leading-snug font-bold">{SECTION_LABELS[k]}</span>
                 {!!count && <span className="num text-4xl">{count}</span>}
               </span>
-              <span className="sr-only">{done[k] ? "مكتمل" : "لسه ناقص"}</span>
+              <span className="sr-only">{done[k] ? "مكتمل" : na ? "مش ينطبق" : "لسه ناقص"}</span>
             </button>
           );
         })}
@@ -990,9 +1053,16 @@ function FilePage() {
           </nav>
           <QuickAdd
             plan={p}
-            onOpenSection={(k) => go({ s: k })}
+            onOpenSection={(k) => {
+              focusEditor.current = true; // land on the editor itself after the sheet closes
+              go({ s: k });
+            }}
             onAdd={(t, value) => {
-              u((x) => quickAdd(x, t, value, MAX_ROWS));
+              u((x) => {
+                const added = quickAdd(x, t, value, MAX_ROWS);
+                // adding something to a section that was "not applicable" makes it applicable
+                return added === x ? x : { ...added, na: (x.na ?? []).filter((n) => n !== t.list) };
+              });
               if (group !== "all" && group !== SECTION_GROUP[t.list]) setGroup("all");
               setBumped(t.list);
               setTimeout(() => setBumped(null), 700);

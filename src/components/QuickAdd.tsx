@@ -173,6 +173,8 @@ export function QuickAdd({
                   <button
                     type="button"
                     onClick={() => {
+                      // not close(): the page moves focus to the letter's editor right after
+                      // this (see file.tsx), so it must not first return it to the + button
                       setOpen(false);
                       onOpenSection("letter");
                     }}
